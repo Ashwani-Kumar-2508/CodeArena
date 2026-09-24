@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — CodeArena</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-center items-center p-6">
+
+  <div class="w-full max-w-md">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <a href="/" class="inline-flex items-center gap-2 font-black text-2xl tracking-tight text-white mb-2">
+        <span class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white shadow-lg shadow-indigo-600/30">⚔</span>
+        Code<span class="text-indigo-400">Arena</span>
+      </a>
+      <h2 class="text-xl font-bold text-slate-200">Sign in to your account</h2>
+      <p class="text-sm text-slate-400">Collaborative technical interview workspace</p>
+    </div>
+
+    <!-- Quick Demo Accounts -->
+    <div class="mb-6 p-4 rounded-xl bg-slate-900 border border-slate-800">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        Instant Demo Access (Click to autofill & login)
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <button type="button" onclick="autoLogin('interviewer@codearena.dev')" class="p-2 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 border border-purple-800/80 text-xs text-purple-200 font-medium transition text-center">
+          Interviewer
+        </button>
+        <button type="button" onclick="autoLogin('candidate@codearena.dev')" class="p-2 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-800/80 text-xs text-emerald-200 font-medium transition text-center">
+          Candidate
+        </button>
+        <button type="button" onclick="autoLogin('admin@codearena.dev')" class="p-2 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/80 text-xs text-rose-200 font-medium transition text-center">
+          Admin
+        </button>
+      </div>
+    </div>
+
+    <!-- Form Card -->
+    <div class="glass-panel p-8 rounded-2xl shadow-2xl">
+      <div id="error-message" class="hidden mb-4 p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-xs text-rose-300"></div>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Email Address</label>
+          <input type="email" id="email" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700/80 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" placeholder="name@example.com" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Password</label>
+          <input type="password" id="password" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700/80 text-slate-100 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" placeholder="••••••••" />
+        </div>
+
+        <button type="submit" id="submit-btn" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white shadow-lg shadow-indigo-600/20 transition text-sm">
+          Sign In
+        </button>
+      </form>
+
+      <p class="text-xs text-center text-slate-500 mt-6">
+        Don't have an account? <a href="/views/register.html" class="text-indigo-400 hover:underline">Create one</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await Auth.init();
+      if (user) {
+        window.location.href = '/views/dashboard.html';
+      }
+
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        await performLogin(email, password);
+      });
+    });
+
+    async function performLogin(email, password) {
+      const errorEl = document.getElementById('error-message');
+      const submitBtn = document.getElementById('submit-btn');
+      errorEl.classList.add('hidden');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Authenticating...';
+
+      try {
+        const res = await API.auth.login({ email, password });
+        if (res.success) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const redirect = urlParams.get('redirect') || '/views/dashboard.html';
+          window.location.href = redirect;
+        }
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove('hidden');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign In';
+      }
+    }
+
+    function autoLogin(email) {
+      document.getElementById('email').value = email;
+      document.getElementById('password').value = 'Password123!';
+      performLogin(email, 'Password123!');
+    }
+  </script>
+</body>
+</html>

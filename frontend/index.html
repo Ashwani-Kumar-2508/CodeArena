@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeArena — Real-Time Collaborative Technical Interview Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+  <!-- Navigation Bar -->
+  <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="flex items-center gap-2 font-black text-xl tracking-tight text-white">
+          <span class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white shadow-lg shadow-indigo-600/30">⚔</span>
+          Code<span class="text-indigo-400">Arena</span>
+        </a>
+      </div>
+
+      <nav class="flex items-center gap-4">
+        <div id="auth-nav-links" class="flex items-center gap-3">
+          <a href="/views/login.html" class="text-sm font-medium text-slate-300 hover:text-white transition">Sign In</a>
+          <a href="/views/register.html" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white transition shadow-lg shadow-indigo-600/20">Get Started</a>
+        </div>
+        <div id="user-nav-dropdown" class="hidden flex items-center gap-3">
+          <a href="/views/dashboard.html" class="text-sm font-medium text-slate-300 hover:text-white transition">Dashboard</a>
+          <span id="user-role-badge"></span>
+          <button onclick="Auth.logout()" class="text-xs text-slate-400 hover:text-rose-400 transition ml-2">Logout</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center max-w-5xl mx-auto">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-950/40 text-indigo-300 text-xs font-medium mb-6">
+      <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+      Portfolio-Grade Technical Interview System
+    </div>
+
+    <h1 class="text-4xl md:text-6xl font-black tracking-tight text-white leading-tight mb-6">
+      Collaborative Technical Interviews <br/>
+      <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">Built Around the Actual Workflow</span>
+    </h1>
+
+    <p class="text-slate-400 text-base md:text-lg max-w-3xl mb-10 leading-relaxed">
+      Not another generic Replit clone. CodeArena combines interviewer/candidate role workflows, multi-format questions, CRDT-based Monaco Editor synchronization, sandboxed code execution with hidden test cases, structured scorecards, and retrospective <strong>Interview Replay</strong>.
+    </p>
+
+    <div class="flex flex-wrap items-center justify-center gap-4 mb-16">
+      <a href="/views/login.html" class="px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white shadow-xl shadow-indigo-600/25 transition flex items-center gap-2">
+        Launch Demo Workspace
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </a>
+      <a href="/views/problems.html" class="px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-medium transition">
+        Browse Question Bank
+      </a>
+    </div>
+
+    <!-- Feature Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left w-full">
+      <div class="glass-panel p-6 rounded-2xl">
+        <div class="w-10 h-10 rounded-xl bg-indigo-950 border border-indigo-800 flex items-center justify-center text-indigo-400 mb-4 font-mono font-bold">01</div>
+        <h3 class="text-lg font-bold text-white mb-2">Role-Based Control</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">Interviewers control timers, assign questions, run hidden test suites, and grade scorecards. Candidates focus entirely on coding.</p>
+      </div>
+
+      <div class="glass-panel p-6 rounded-2xl">
+        <div class="w-10 h-10 rounded-xl bg-purple-950 border border-purple-800 flex items-center justify-center text-purple-400 mb-4 font-mono font-bold">02</div>
+        <h3 class="text-lg font-bold text-white mb-2">Monaco + Yjs CRDT</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">Deterministic real-time code synchronization and remote cursor presence without central race conditions.</p>
+      </div>
+
+      <div class="glass-panel p-6 rounded-2xl">
+        <div class="w-10 h-10 rounded-xl bg-pink-950 border border-pink-800 flex items-center justify-center text-pink-400 mb-4 font-mono font-bold">03</div>
+        <h3 class="text-lg font-bold text-white mb-2">Interview Replay</h3>
+        <p class="text-sm text-slate-400 leading-relaxed">Inspect how the candidate reasoned through the problem with scrubbable event timelines and version playback.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-8 text-center text-xs text-slate-500">
+    <p>CodeArena &copy; 2026. Built by Ashwani Kumar. Node.js &bull; Express &bull; PostgreSQL &bull; Prisma &bull; Monaco Editor &bull; Socket.IO</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      Auth.init();
+    });
+  </script>
+</body>
+</html>

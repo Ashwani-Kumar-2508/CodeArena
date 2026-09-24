@@ -1,0 +1,17 @@
+{
+  "name": "codearena-execution-worker",
+  "version": "1.0.0",
+  "description": "Sandboxed code execution worker for CodeArena",
+  "main": "runner.js",
+  "scripts": {
+    "start": "node runner.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  },
+  "keywords": ["sandbox", "runner", "code-execution", "codearena"],
+  "author": "Ashwani Kumar",
+  "license": "MIT"
+}

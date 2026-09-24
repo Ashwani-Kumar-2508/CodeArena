@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Replay — CodeArena</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+
+  <!-- Monaco Editor AMD Loader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/editor.js"></script>
+  <script src="/js/replay.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden">
+
+  <!-- Top Bar -->
+  <header class="h-14 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-6 shrink-0 z-20">
+    <div class="flex items-center gap-3">
+      <a href="/views/dashboard.html" class="flex items-center gap-2 font-black text-lg text-white group" title="Return to Dashboard">
+        <span class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white text-xs shadow-lg shadow-indigo-600/30 group-hover:bg-indigo-500 transition">⚔</span>
+        <span>Code<span class="text-indigo-400">Arena</span></span>
+      </a>
+      <span class="text-slate-600">/</span>
+      <h1 id="replay-title" class="text-sm font-bold text-slate-200 truncate max-w-sm">Interview Replay</h1>
+      <span class="px-2 py-0.5 text-xs font-semibold rounded bg-purple-950 text-purple-300 border border-purple-800">REPLAY MODE</span>
+    </div>
+
+    <div class="flex items-center gap-6 text-xs text-slate-400">
+      <div><strong>Candidate:</strong> <span id="replay-candidate" class="text-slate-200">Loading...</span></div>
+      <div><strong>Interviewer:</strong> <span id="replay-interviewer" class="text-slate-200">Loading...</span></div>
+      <div><strong>Total Events:</strong> <span id="total-events-count" class="font-mono text-indigo-400 font-bold">0</span></div>
+    </div>
+  </header>
+
+  <!-- Player Controls Ribbon -->
+  <div class="h-14 border-b border-slate-800 bg-slate-900/70 px-6 flex items-center justify-between gap-4 shrink-0">
+    <!-- Playback buttons -->
+    <div class="flex items-center gap-2">
+      <button id="prev-btn" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-300 transition" title="Previous Event">⏮</button>
+      <button id="play-btn" class="px-3.5 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-indigo-600/20 transition gap-1.5" title="Play / Pause">
+        <span id="play-icon">▶</span> Play
+      </button>
+      <button id="next-btn" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-300 transition" title="Next Event">⏭</button>
+    </div>
+
+    <!-- Timeline Slider -->
+    <div class="flex-1 flex items-center gap-3 max-w-2xl mx-4">
+      <input type="range" id="replay-slider" min="0" max="0" value="0" class="w-full accent-indigo-500 cursor-pointer" />
+      <span id="current-step-display" class="font-mono text-xs text-slate-400 whitespace-nowrap">Event 0 of 0</span>
+    </div>
+
+    <!-- Speed Multiplier -->
+    <div class="flex items-center gap-2">
+      <label class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Speed:</label>
+      <select id="speed-select" class="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-200">
+        <option value="1">1.0x</option>
+        <option value="2">2.0x</option>
+        <option value="4">4.0x</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Replay Main Content -->
+  <div class="flex-1 flex overflow-hidden">
+    <!-- Events Feed (Left, 320px) -->
+    <div class="w-80 lg:w-96 border-r border-slate-800 bg-slate-900/40 flex flex-col shrink-0">
+      <div class="p-3 border-b border-slate-800 bg-slate-950/40">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Event Timeline</div>
+      </div>
+      <div id="events-stream" class="flex-1 overflow-y-auto p-3 space-y-2">
+        <div class="text-xs text-slate-500 italic p-3">Loading session events...</div>
+      </div>
+    </div>
+
+    <!-- Code Snapshot Editor (Right, Flex-1) -->
+    <div class="flex-1 flex flex-col min-w-0 bg-slate-950">
+      <div class="h-9 border-b border-slate-800 bg-slate-950/80 px-4 flex items-center justify-between shrink-0">
+        <span class="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+          Snapshot Code View
+        </span>
+        <span class="text-[10px] text-slate-500 font-mono">Read-Only Retrospective</span>
+      </div>
+
+      <div class="flex-1 relative">
+        <div id="replay-editor-container" class="w-full h-full"></div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

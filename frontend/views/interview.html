@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Room — CodeArena</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+
+  <!-- Monaco Editor AMD Loader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+  <!-- Socket.IO Client -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/socket.js"></script>
+  <script src="/js/editor.js"></script>
+  <script src="/js/interview-room.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden">
+
+  <!-- Top Navigation / Session Header -->
+  <header class="h-14 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 z-20 shrink-0">
+    <!-- Left: Branding & Room Info -->
+    <div class="flex items-center gap-3">
+      <a href="/views/dashboard.html" class="flex items-center gap-2 font-black text-lg text-white group" title="Return to Dashboard">
+        <span class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white text-xs shadow-lg shadow-indigo-600/30 group-hover:bg-indigo-500 transition">⚔</span>
+        <span class="hidden sm:inline">Code<span class="text-indigo-400">Arena</span></span>
+      </a>
+      <span class="text-slate-600">/</span>
+      <h1 id="room-title" class="text-sm font-bold text-slate-200 truncate max-w-xs md:max-w-md">Interview Room</h1>
+      <span id="interview-status-badge" class="px-2 py-0.5 text-xs font-semibold rounded bg-slate-800 text-slate-300">SCHEDULED</span>
+    </div>
+
+    <!-- Center: Synchronized Live Timer -->
+    <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800">
+      <span class="recording-pulse"></span>
+      <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Timer:</span>
+      <span id="timer-display" class="font-mono text-sm font-bold text-slate-200">--:--</span>
+    </div>
+
+    <!-- Right: Interviewer Controls & Evaluation Drawer -->
+    <div class="flex items-center gap-2">
+      <button id="start-session-btn" class="hidden px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Start Interview
+      </button>
+
+      <button id="end-session-btn" class="hidden px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-rose-600/20 transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+        Conclude Session
+      </button>
+
+      <button id="toggle-eval-drawer-btn" class="hidden px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-purple-600/20 transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        Scorecard
+      </button>
+    </div>
+  </header>
+
+  <!-- Workspace Grid -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- Left Panel: Problem Statements & Questions (Width: 28%) -->
+    <div class="w-80 lg:w-96 border-r border-slate-800 bg-slate-900/50 flex flex-col shrink-0">
+      <!-- Question Switcher Tabs -->
+      <div class="p-3 border-b border-slate-800 bg-slate-950/40">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Interview Questions</div>
+        <div id="question-tabs" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <!-- Problem Content -->
+      <div class="flex-1 p-4 overflow-y-auto space-y-4">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span id="question-badge-type" class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800">CODING</span>
+            <span id="question-badge-diff" class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-800">EASY</span>
+          </div>
+          <h2 id="question-title" class="text-base font-bold text-white mb-2">Loading question...</h2>
+          <div id="question-description" class="text-xs text-slate-300 leading-relaxed space-y-2"></div>
+        </div>
+
+        <!-- Hints Container -->
+        <div id="hints-wrapper" class="pt-3 border-t border-slate-800">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-400">Assistance / Hints</span>
+            <button id="request-hint-btn" class="hidden text-xs text-amber-400 hover:text-amber-300 transition underline">
+              Request Hint
+            </button>
+          </div>
+          <div id="revealed-hints-box" class="hidden mt-2"></div>
+        </div>
+
+        <!-- Interviewer Private Scratchpad -->
+        <div id="interviewer-notes-section" class="hidden pt-3 border-t border-slate-800">
+          <label class="block text-xs font-semibold text-purple-300 mb-1 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            Interviewer Private Notes (Hidden from Candidate)
+          </label>
+          <textarea id="interviewer-scratchpad" rows="4" class="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-purple-500 font-mono" placeholder="Record immediate technical observations, problem-solving approach, time complexity..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Panel: Collaborative Monaco Editor + Test Results (Flex-1) -->
+    <div class="flex-1 flex flex-col min-w-0 bg-slate-950">
+      <!-- Editor Toolbar -->
+      <div class="h-11 border-b border-slate-800 bg-slate-950/80 px-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            solution.js
+          </span>
+          <span class="text-[11px] text-slate-500 font-mono hidden md:inline">Ctrl + Enter to run</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="run-code-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5">
+            <span>▶</span> Run Tests
+          </button>
+          <button id="submit-code-btn" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-indigo-600/20 transition flex items-center gap-1.5">
+            <span>✔</span> Submit Solution
+          </button>
+        </div>
+      </div>
+
+      <!-- Monaco Editor Container -->
+      <div class="flex-1 relative">
+        <div id="monaco-editor-container"></div>
+      </div>
+
+      <!-- Bottom Panel: Test Case Results & Console (Height: 210px) -->
+      <div class="h-52 border-t border-slate-800 bg-slate-900/60 flex flex-col shrink-0">
+        <div class="h-9 px-4 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-bold text-slate-300">Test Execution Results</span>
+            <span id="test-summary-badge" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">0/0 Passed</span>
+          </div>
+          <span class="text-[10px] text-slate-500 font-mono">Isolated Sandbox VM</span>
+        </div>
+
+        <div id="test-results-container" class="flex-1 p-3 overflow-y-auto font-mono text-xs">
+          <div class="text-xs text-slate-500 italic p-2">Click "Run Tests" to execute your solution against visible test cases.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Participants Presence & Real-Time Chat (Width: 72) -->
+    <div class="w-72 border-l border-slate-800 bg-slate-900/50 flex flex-col shrink-0">
+      <!-- Presence List -->
+      <div class="p-3 border-b border-slate-800">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Connected Participants</div>
+        <div id="participants-list" class="space-y-1.5"></div>
+      </div>
+
+      <!-- Chat Stream -->
+      <div class="flex-1 flex flex-col p-3 overflow-hidden">
+        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Interview Chat</div>
+        <div id="chat-messages" class="flex-1 overflow-y-auto pr-1 mb-2 space-y-2"></div>
+
+        <form id="chat-form" class="flex items-center gap-2 mt-auto">
+          <input type="text" id="chat-input" placeholder="Type a message..." class="flex-1 px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" />
+          <button type="submit" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold">Send</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Interviewer Evaluation Slide-out Drawer -->
+  <div id="evaluation-drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-slate-900 border-l border-slate-800 shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col p-6 overflow-y-auto">
+    <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
+      <h3 class="text-lg font-bold text-white flex items-center gap-2">
+        <span class="text-purple-400">📝</span> Candidate Evaluation
+      </h3>
+      <button id="close-eval-drawer-btn" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+    </div>
+
+    <form id="evaluation-form" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Overall Rating (1 - 5)</label>
+        <input type="range" name="overallScore" min="1" max="5" value="4" class="w-full accent-indigo-500" oninput="this.nextElementSibling.value = this.value" />
+        <output class="text-xs font-mono text-indigo-400 font-bold">4</output> / 5
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 text-xs">
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase mb-1">Problem Solving</label>
+          <input type="number" name="problemSolvingScore" min="1" max="5" value="4" class="w-full p-2 rounded bg-slate-950 border border-slate-800 text-slate-200 font-mono" />
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase mb-1">Code Quality</label>
+          <input type="number" name="codeQualityScore" min="1" max="5" value="4" class="w-full p-2 rounded bg-slate-950 border border-slate-800 text-slate-200 font-mono" />
+        </div>
+        <div>
+          <label class="block text-[10px] text-slate-400 uppercase mb-1">Communication</label>
+          <input type="number" name="communicationScore" min="1" max="5" value="4" class="w-full p-2 rounded bg-slate-950 border border-slate-800 text-slate-200 font-mono" />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Final Hiring Recommendation</label>
+        <select name="recommendation" class="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+          <option value="STRONG_HIRE">Strong Hire</option>
+          <option value="HIRE" selected>Hire</option>
+          <option value="NO_HIRE">No Hire</option>
+          <option value="STRONG_NO_HIRE">Strong No Hire</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Key Strengths</label>
+        <textarea name="strengths" rows="2" class="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="e.g. Strong grasp of hash maps, optimal time complexity O(n)..."></textarea>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Areas for Improvement</label>
+        <textarea name="improvements" rows="2" class="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="e.g. Initial hesitation on boundary condition tests..."></textarea>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Detailed Qualitative Feedback</label>
+        <textarea name="feedback" rows="3" class="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" placeholder="Full summary notes for the hiring committee..."></textarea>
+      </div>
+
+      <button type="submit" class="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-purple-600/20 transition">
+        Submit Final Scorecard
+      </button>
+    </form>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  INTERVIEWER
+  CANDIDATE
+}
+
+enum InterviewStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum QuestionType {
+  CODING
+  TECHNICAL
+  BEHAVIORAL
+  MCQ
+  FOLLOW_UP
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum CodingSessionStatus {
+  CREATED
+  ACTIVE
+  SUBMITTED
+  EVALUATED
+}
+
+enum CodeTrigger {
+  AUTO_SAVE
+  RUN_TESTS
+  SUBMISSION
+}
+
+enum SubmissionStatus {
+  PENDING
+  PASSED
+  FAILED
+  ERROR
+}
+
+enum Recommendation {
+  STRONG_HIRE
+  HIRE
+  NO_HIRE
+  STRONG_NO_HIRE
+}
+
+model User {
+  id                    String        @id @default(uuid())
+  email                 String        @unique
+  passwordHash          String
+  name                  String
+  role                  Role          @default(CANDIDATE)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  interviewsAsLead      Interview[]   @relation("InterviewerRelation")
+  interviewsAsCandidate Interview[]   @relation("CandidateRelation")
+  evaluationsGiven      Evaluation[]
+  events                InterviewEvent[]
+
+  @@index([email])
+}
+
+model Interview {
+  id              String             @id @default(uuid())
+  title           String
+  description     String?
+  status          InterviewStatus    @default(DRAFT)
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  durationMinutes Int                @default(60)
+  interviewerId   String
+  candidateId     String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  interviewer     User               @relation("InterviewerRelation", fields: [interviewerId], references: [id], onDelete: Cascade)
+  candidate       User?              @relation("CandidateRelation", fields: [candidateId], references: [id], onDelete: SetNull)
+
+  questions       InterviewQuestion[]
+  codingSessions  CodingSession[]
+  evaluations     Evaluation[]
+  events          InterviewEvent[]
+
+  @@index([interviewerId, status])
+  @@index([candidateId, status])
+}
+
+model Question {
+  id                 String              @id @default(uuid())
+  title              String
+  description        String
+  type               QuestionType        @default(CODING)
+  difficulty         Difficulty          @default(MEDIUM)
+  defaultCodeSnippet String?
+  language           String              @default("javascript")
+  options            Json?
+  hints              Json?
+  rubric             Json?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  testCases          TestCase[]
+  interviewQuestions InterviewQuestion[]
+  codingSessions     CodingSession[]
+}
+
+model TestCase {
+  id             String    @id @default(uuid())
+  questionId     String
+  input          String
+  expectedOutput String
+  isHidden       Boolean   @default(false)
+  explanation    String?
+
+  question       Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, isHidden])
+}
+
+model InterviewQuestion {
+  id               String    @id @default(uuid())
+  interviewId      String
+  questionId       String
+  order            Int       @default(1)
+  currentStatus    String    @default("PENDING")
+  interviewerNotes String?
+  createdAt        DateTime  @default(now())
+
+  interview        Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question         Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([interviewId, order])
+}
+
+model CodingSession {
+  id           String              @id @default(uuid())
+  interviewId  String
+  questionId   String
+  status       CodingSessionStatus @default(CREATED)
+  language     String              @default("javascript")
+  currentCode  String              @default("")
+  startedAt    DateTime            @default(now())
+  submittedAt  DateTime?
+
+  interview    Interview           @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  question     Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  versions     CodeVersion[]
+  submissions  Submission[]
+
+  @@index([interviewId, questionId])
+}
+
+model CodeVersion {
+  id              String        @id @default(uuid())
+  codingSessionId String
+  code            String
+  trigger         CodeTrigger   @default(AUTO_SAVE)
+  timestamp       DateTime      @default(now())
+
+  codingSession   CodingSession @relation(fields: [codingSessionId], references: [id], onDelete: Cascade)
+
+  @@index([codingSessionId, timestamp])
+}
+
+model Submission {
+  id              String           @id @default(uuid())
+  codingSessionId String
+  code            String
+  language        String           @default("javascript")
+  status          SubmissionStatus @default(PENDING)
+  testResults     Json?
+  passedCount     Int              @default(0)
+  totalCount      Int              @default(0)
+  executionTimeMs Float            @default(0)
+  memoryUsedKb    Float            @default(0)
+  submittedAt     DateTime         @default(now())
+
+  codingSession   CodingSession    @relation(fields: [codingSessionId], references: [id], onDelete: Cascade)
+
+  @@index([codingSessionId])
+}
+
+model Evaluation {
+  id                   String         @id @default(uuid())
+  interviewId          String
+  interviewerId        String
+  overallScore         Int            @default(3)
+  problemSolvingScore  Int            @default(3)
+  codeQualityScore     Int            @default(3)
+  communicationScore   Int            @default(3)
+  recommendation       Recommendation @default(HIRE)
+  strengths            String?
+  improvements         String?
+  feedback             String?
+  submittedAt          DateTime       @default(now())
+
+  interview            Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  interviewer          User           @relation(fields: [interviewerId], references: [id], onDelete: Cascade)
+
+  @@index([interviewId])
+}
+
+model InterviewEvent {
+  id          String    @id @default(uuid())
+  interviewId String
+  userId      String?
+  eventType   String
+  payload     Json?
+  timestamp   DateTime  @default(now())
+
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([interviewId, timestamp])
+}

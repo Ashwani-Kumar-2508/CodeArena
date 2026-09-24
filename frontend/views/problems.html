@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Problem Bank — CodeArena</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- Nav -->
+  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-6">
+        <a href="/" class="flex items-center gap-2 font-black text-xl tracking-tight text-white">
+          <span class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white shadow-lg shadow-indigo-600/30">⚔</span>
+          Code<span class="text-indigo-400">Arena</span>
+        </a>
+        <a href="/views/dashboard.html" class="text-sm font-medium text-slate-400 hover:text-slate-200 transition">Interviews</a>
+        <a href="/views/problems.html" class="text-sm font-semibold text-indigo-400">Questions</a>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <span id="user-display-name" class="text-sm font-semibold text-slate-200"></span>
+          <span id="user-role-badge"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-6 py-8 flex-1 w-full">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-2xl font-black text-white">Question Catalog</h1>
+        <p class="text-sm text-slate-400 mt-1">Curated multi-format assessment problems: Coding, System Design, Behavioral & MCQs</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button onclick="filterQuestions('ALL')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white filter-btn" data-filter="ALL">All Formats</button>
+      <button onclick="filterQuestions('CODING')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white filter-btn" data-filter="CODING">Coding</button>
+      <button onclick="filterQuestions('TECHNICAL')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white filter-btn" data-filter="TECHNICAL">System Design</button>
+      <button onclick="filterQuestions('BEHAVIORAL')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white filter-btn" data-filter="BEHAVIORAL">Behavioral</button>
+    </div>
+
+    <!-- Questions Grid -->
+    <div id="questions-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="p-8 text-center text-slate-500 col-span-full">Loading question repository...</div>
+    </div>
+  </main>
+
+  <script>
+    let allQuestions = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await Auth.init();
+      loadQuestions();
+    });
+
+    async function loadQuestions() {
+      try {
+        const res = await API.questions.list();
+        allQuestions = res.data.questions || [];
+        renderQuestions(allQuestions);
+      } catch (err) {
+        document.getElementById('questions-grid').innerHTML = `<div class="p-4 text-xs text-rose-400 col-span-full">${err.message}</div>`;
+      }
+    }
+
+    function renderQuestions(questions) {
+      const container = document.getElementById('questions-grid');
+      if (questions.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-slate-500 col-span-full">No questions match filter.</div>`;
+        return;
+      }
+
+      container.innerHTML = questions.map(q => `
+        <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between hover:border-indigo-500/40 transition">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800">${q.type}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono ${q.difficulty === 'EASY' ? 'bg-emerald-950 text-emerald-400' : 'bg-amber-950 text-amber-400'}">${q.difficulty}</span>
+            </div>
+            <h3 class="text-base font-bold text-white mb-2">${q.title}</h3>
+            <p class="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-4">${q.description.replace(/[#*`]/g, '')}</p>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
+            <span>${q.testCases ? q.testCases.length + ' Test Cases' : 'Rubric Evaluation'}</span>
+            <span class="font-mono text-indigo-400">${q.language || 'General'}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filterQuestions(type) {
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.getAttribute('data-filter') === type) {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white filter-btn';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white filter-btn';
+        }
+      });
+
+      if (type === 'ALL') {
+        renderQuestions(allQuestions);
+      } else {
+        renderQuestions(allQuestions.filter(q => q.type === type));
+      }
+    }
+  </script>
+</body>
+</html>
