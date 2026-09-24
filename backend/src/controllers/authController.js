@@ -2,21 +2,32 @@ const authService = require('../services/authService');
 const { COOKIE_OPTIONS } = require('../config/jwt');
 const { z } = require('zod');
 
+// Public registration is restricted to CANDIDATE role by default.
+// Administrative and interviewer accounts must be created through admin oversight or seed.
 const registerSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.string().email('Please enter a valid email address').transform(val => val.toLowerCase().trim()),
   password: z.string().min(6, 'Password must be at least 6 characters long'),
-  name: z.string().min(2, 'Name must be at least 2 characters long'),
-  role: z.enum(['ADMIN', 'INTERVIEWER', 'CANDIDATE']).optional()
+  name: z.string().min(2, 'Name must be at least 2 characters long').transform(val => val.trim()),
+  role: z.enum(['CANDIDATE', 'INTERVIEWER']).default('CANDIDATE')
 });
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.string().email('Please enter a valid email address').transform(val => val.toLowerCase().trim()),
   password: z.string().min(1, 'Password is required')
 });
 
 async function register(req, res, next) {
   try {
     const validatedData = registerSchema.parse(req.body);
+
+    // Prevent public creation of ADMIN accounts
+    if (req.body.role === 'ADMIN') {
+      return res.status(403).json({
+        success: false,
+        error: 'Administrator accounts cannot be registered publicly.'
+      });
+    }
+
     const { user, token } = await authService.register(validatedData);
 
     res.cookie('token', token, COOKIE_OPTIONS);

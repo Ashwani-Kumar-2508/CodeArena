@@ -2,7 +2,7 @@ const prisma = require('../config/db');
 const { verifyToken } = require('../config/jwt');
 const cookie = require('cookie');
 
-// In-memory room state: room -> Set of active participants
+// In-memory room state: room -> Map of socketId -> participant
 const roomParticipants = new Map();
 // In-memory room code buffers for fast sync
 const roomCodeState = new Map();
@@ -19,7 +19,7 @@ function initSocket(io) {
         token = parsedCookies.token;
       }
 
-      // Check handshake auth or query
+      // Check handshake auth
       if (!token && socket.handshake.auth && socket.handshake.auth.token) {
         token = socket.handshake.auth.token;
       }
@@ -35,7 +35,7 @@ function initSocket(io) {
       });
 
       if (!user) {
-        return next(new Error('User not found'));
+        return next(new Error('User account not found'));
       }
 
       socket.user = user;
@@ -49,39 +49,72 @@ function initSocket(io) {
     const user = socket.user;
     console.log(`[Socket] Connected: ${user.name} (${user.role}) - Socket ID: ${socket.id}`);
 
-    // Join Interview Room
+    // Join Interview Room with Strict Authorization
     socket.on('join_room', async ({ interviewId }) => {
       if (!interviewId) return;
 
-      socket.join(interviewId);
-      socket.interviewId = interviewId;
-
-      // Track participant
-      if (!roomParticipants.has(interviewId)) {
-        roomParticipants.set(interviewId, new Map());
-      }
-      const participants = roomParticipants.get(interviewId);
-      participants.set(socket.id, {
-        userId: user.id,
-        name: user.name,
-        role: user.role,
-        socketId: socket.id
-      });
-
-      // Broadcast updated participant list to room
-      const activeList = Array.from(participants.values());
-      io.to(interviewId).emit('participants_update', activeList);
-
-      // Send initial code state if exists
-      if (roomCodeState.has(interviewId)) {
-        socket.emit('code_sync', {
-          code: roomCodeState.get(interviewId),
-          origin: 'server_init'
-        });
-      }
-
-      // Log USER_JOINED event
       try {
+        const interview = await prisma.interview.findUnique({
+          where: { id: interviewId },
+          select: {
+            id: true,
+            status: true,
+            startedAt: true,
+            durationMinutes: true,
+            interviewerId: true,
+            candidateId: true
+          }
+        });
+
+        if (!interview) {
+          return socket.emit('room_error', { message: 'Interview session does not exist' });
+        }
+
+        // Strict authorization check: Only assigned interviewer, assigned candidate, or admin can join
+        const isInterviewer = interview.interviewerId === user.id;
+        const isCandidate = interview.candidateId === user.id;
+        const isAdmin = user.role === 'ADMIN';
+
+        if (!isInterviewer && !isCandidate && !isAdmin) {
+          return socket.emit('room_error', { message: 'Access denied: You are not an authorized participant in this interview.' });
+        }
+
+        socket.join(interviewId);
+        socket.interviewId = interviewId;
+
+        // Track participant
+        if (!roomParticipants.has(interviewId)) {
+          roomParticipants.set(interviewId, new Map());
+        }
+        const participants = roomParticipants.get(interviewId);
+        participants.set(socket.id, {
+          userId: user.id,
+          name: user.name,
+          role: user.role,
+          socketId: socket.id
+        });
+
+        // Broadcast updated participant list to room
+        const activeList = Array.from(participants.values());
+        io.to(interviewId).emit('participants_update', activeList);
+
+        // Notify client about server time and session state
+        socket.emit('session_init', {
+          serverTime: Date.now(),
+          status: interview.status,
+          startedAt: interview.startedAt,
+          durationMinutes: interview.durationMinutes
+        });
+
+        // Send initial code state if exists
+        if (roomCodeState.has(interviewId)) {
+          socket.emit('code_sync', {
+            code: roomCodeState.get(interviewId),
+            origin: 'server_init'
+          });
+        }
+
+        // Log USER_JOINED event
         await prisma.interviewEvent.create({
           data: {
             interviewId,
@@ -90,16 +123,17 @@ function initSocket(io) {
             payload: { name: user.name, role: user.role }
           }
         });
-      } catch (e) {
-        console.error('Error logging USER_JOINED event:', e);
-      }
 
-      console.log(`[Socket] ${user.name} joined room: ${interviewId}`);
+        console.log(`[Socket] Authorized join: ${user.name} (${user.role}) in room ${interviewId}`);
+      } catch (err) {
+        console.error('Error handling join_room:', err);
+        socket.emit('room_error', { message: 'Internal error joining interview room' });
+      }
     });
 
-    // Real-Time Code Sync (Yjs / Text Deltas)
+    // Real-Time Code Sync (Text & Deltas)
     socket.on('code_change', async ({ interviewId, code, delta }) => {
-      if (!interviewId) return;
+      if (!interviewId || !socket.interviewId || socket.interviewId !== interviewId) return;
       roomCodeState.set(interviewId, code);
 
       // Broadcast to other participants in the room
@@ -111,9 +145,9 @@ function initSocket(io) {
       });
     });
 
-    // Cursor Movement
+    // Remote Cursor Movement
     socket.on('cursor_move', ({ interviewId, position }) => {
-      if (!interviewId) return;
+      if (!interviewId || !socket.interviewId || socket.interviewId !== interviewId) return;
       socket.to(interviewId).emit('remote_cursor', {
         userId: user.id,
         userName: user.name,
@@ -122,7 +156,7 @@ function initSocket(io) {
       });
     });
 
-    // Interview Lifecycle Controls (Interviewer / Admin only)
+    // Interview Lifecycle: Start (Interviewer / Admin only)
     socket.on('start_interview_timer', async ({ interviewId, durationMinutes }) => {
       if (user.role === 'CANDIDATE') return;
       const startedAt = new Date();
@@ -132,16 +166,27 @@ function initSocket(io) {
           where: { id: interviewId },
           data: { status: 'ACTIVE', startedAt }
         });
+
+        await prisma.interviewEvent.create({
+          data: {
+            interviewId,
+            userId: user.id,
+            eventType: 'INTERVIEW_STARTED',
+            payload: { startedAt, durationMinutes }
+          }
+        });
       } catch (err) {
-        console.error('Error updating interview to active:', err);
+        console.error('Error starting interview timer:', err);
       }
 
       io.to(interviewId).emit('interview_started', {
         startedAt,
-        durationMinutes
+        durationMinutes,
+        serverTime: Date.now()
       });
     });
 
+    // Interview Lifecycle: End (Interviewer / Admin only)
     socket.on('end_interview_session', async ({ interviewId }) => {
       if (user.role === 'CANDIDATE') return;
       const endedAt = new Date();
@@ -151,8 +196,17 @@ function initSocket(io) {
           where: { id: interviewId },
           data: { status: 'COMPLETED', endedAt }
         });
+
+        await prisma.interviewEvent.create({
+          data: {
+            interviewId,
+            userId: user.id,
+            eventType: 'INTERVIEW_ENDED',
+            payload: { endedAt }
+          }
+        });
       } catch (err) {
-        console.error('Error updating interview to completed:', err);
+        console.error('Error concluding interview:', err);
       }
 
       io.to(interviewId).emit('interview_ended', { endedAt });
@@ -178,7 +232,7 @@ function initSocket(io) {
       io.to(interviewId).emit('question_switched', { questionId, order });
     });
 
-    // Real-Time Chat
+    // Real-Time In-Room Chat
     socket.on('send_chat', async ({ interviewId, message }) => {
       if (!interviewId || !message || !message.trim()) return;
 
@@ -220,7 +274,7 @@ function initSocket(io) {
       io.to(interviewId).emit('hint_revealed', { hint, index });
     });
 
-    // Disconnect
+    // Disconnect & Cleanup
     socket.on('disconnect', async () => {
       const interviewId = socket.interviewId;
       if (interviewId && roomParticipants.has(interviewId)) {

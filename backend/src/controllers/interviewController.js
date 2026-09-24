@@ -4,10 +4,23 @@ const { z } = require('zod');
 const createInterviewSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional(),
-  candidateEmail: z.string().email().optional().or(z.literal('')),
+  candidateId: z.string().min(1, 'Please select a valid candidate'),
+  scheduledAt: z.string().optional(),
   durationMinutes: z.number().or(z.string().regex(/^\d+$/)).transform(Number).optional(),
-  questionIds: z.array(z.string()).optional()
+  questionIds: z.array(z.string()).min(1, 'Please select at least one question')
 });
+
+async function getCandidates(req, res, next) {
+  try {
+    const candidates = await interviewService.listCandidates();
+    res.json({
+      success: true,
+      data: { candidates }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
 
 async function createInterview(req, res, next) {
   try {
@@ -15,7 +28,7 @@ async function createInterview(req, res, next) {
     const interview = await interviewService.createInterview(req.user.id, validatedData);
     res.status(201).json({
       success: true,
-      message: 'Interview created successfully',
+      message: 'Interview created and scheduled successfully',
       data: { interview }
     });
   } catch (error) {
@@ -58,7 +71,7 @@ async function startInterview(req, res, next) {
     const interview = await interviewService.startInterview(req.params.id, req.user);
     res.json({
       success: true,
-      message: 'Interview started',
+      message: 'Interview started successfully',
       data: { interview }
     });
   } catch (error) {
@@ -71,7 +84,20 @@ async function endInterview(req, res, next) {
     const interview = await interviewService.endInterview(req.params.id, req.user);
     res.json({
       success: true,
-      message: 'Interview completed',
+      message: 'Interview session concluded',
+      data: { interview }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function cancelInterview(req, res, next) {
+  try {
+    const interview = await interviewService.cancelInterview(req.params.id, req.user);
+    res.json({
+      success: true,
+      message: 'Interview session cancelled',
       data: { interview }
     });
   } catch (error) {
@@ -80,9 +106,11 @@ async function endInterview(req, res, next) {
 }
 
 module.exports = {
+  getCandidates,
   createInterview,
   listInterviews,
   getInterview,
   startInterview,
-  endInterview
+  endInterview,
+  cancelInterview
 };

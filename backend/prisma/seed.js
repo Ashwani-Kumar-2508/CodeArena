@@ -287,6 +287,7 @@ Tell me about a time when you strongly disagreed with a team member’s architec
       title: 'Full-Stack Software Engineer Technical Screen',
       description: 'Live coding assessment: Data structures, algorithmic problem solving, and edge-case handling.',
       status: 'SCHEDULED',
+      scheduledAt: new Date(),
       durationMinutes: 60,
       interviewerId: interviewer.id,
       candidateId: candidate.id,

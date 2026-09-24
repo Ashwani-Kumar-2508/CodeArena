@@ -4,54 +4,78 @@
 let interviewData = null;
 let activeQuestionIndex = 0;
 let timerInterval = null;
+let serverClockOffset = 0; // Difference between server timestamp and client local clock
 
 document.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
   const interviewId = urlParams.get('id');
 
+  const loadingOverlay = document.getElementById('room-loading-overlay');
+  const deniedOverlay = document.getElementById('room-denied-overlay');
+  const deniedMessage = document.getElementById('room-denied-message');
+
+  window.onRoomSecurityError = (msg) => {
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+    if (deniedOverlay) {
+      if (deniedMessage) deniedMessage.textContent = msg;
+      deniedOverlay.classList.remove('hidden');
+    }
+  };
+
   if (!interviewId) {
-    alert('No interview ID specified.');
-    window.location.href = '/views/dashboard.html';
+    window.onRoomSecurityError('No interview ID was specified in the URL.');
     return;
   }
 
   window.currentInterviewId = interviewId;
+
+  // 1. Authenticate user
   const user = await Auth.requireAuth();
   if (!user) return;
 
+  // 2. Fetch interview data and verify authorization
   try {
     const res = await API.interviews.get(interviewId);
     interviewData = res.data.interview;
+
     renderRoomHeader(interviewData, user);
     setupRolePermissions(interviewData, user);
     setupQuestionsNavigation();
     setupChat();
     setupEvaluationDrawer(user);
+
+    // 3. Connect real-time socket and join room
     initRealtime(interviewId, user);
 
-    // Initialize Monaco Editor with active question code
+    // 4. Initialize Monaco Editor with starter code of first question
     const initialQuestion = getActiveQuestion();
     const starterCode = initialQuestion ? (initialQuestion.defaultCodeSnippet || '// Start coding your solution here...\n') : '';
     await codeEditor.init('monaco-editor-container', starterCode, initialQuestion?.language || 'javascript');
 
-    // Bind local editor changes to real-time sync
+    // 5. Bind local editor changes to real-time sync
     codeEditor.onContentChange((code, changes) => {
       realtime.sendCodeChange(interviewId, code, changes);
     });
 
-    // Bind Run Code shortcut & buttons
+    // 6. Bind Run Code and Submit handlers
     codeEditor.onRunCallback = handleRunCode;
     document.getElementById('run-code-btn')?.addEventListener('click', handleRunCode);
     document.getElementById('submit-code-btn')?.addEventListener('click', handleSubmitCode);
 
-    // Check timer status
+    // 7. Check if interview is currently active
     if (interviewData.status === 'ACTIVE' && interviewData.startedAt) {
       startCountdown(interviewData.startedAt, interviewData.durationMinutes);
+    } else if (interviewData.status === 'COMPLETED') {
+      const timerEl = document.getElementById('timer-display');
+      if (timerEl) timerEl.textContent = 'CONCLUDED';
     }
 
+    // Dismiss loading overlay
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+
   } catch (err) {
-    alert(`Failed to load interview room: ${err.message}`);
-    window.location.href = '/views/dashboard.html';
+    console.error('Failed to initialize interview room:', err);
+    window.onRoomSecurityError(err.message || 'You do not have permission to access this interview room.');
   }
 });
 
@@ -61,12 +85,14 @@ function getActiveQuestion() {
 }
 
 function renderRoomHeader(interview, user) {
-  document.getElementById('room-title').textContent = interview.title;
+  const titleEl = document.getElementById('room-title');
+  if (titleEl) titleEl.textContent = interview.title;
+
   const statusBadge = document.getElementById('interview-status-badge');
   if (statusBadge) {
     statusBadge.textContent = interview.status;
     statusBadge.className = `px-2 py-0.5 text-xs font-semibold rounded ${
-      interview.status === 'ACTIVE' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' :
+      interview.status === 'ACTIVE' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800 animate-pulse' :
       interview.status === 'COMPLETED' ? 'bg-purple-950 text-purple-300 border border-purple-800' :
       'bg-slate-800 text-slate-300 border border-slate-700'
     }`;
@@ -82,13 +108,14 @@ function setupRolePermissions(interview, user) {
   const requestHintBtn = document.getElementById('request-hint-btn');
 
   if (isInterviewer) {
-    if (startBtn && interview.status !== 'ACTIVE' && interview.status !== 'COMPLETED') startBtn.classList.remove('hidden');
+    if (startBtn && interview.status === 'SCHEDULED') startBtn.classList.remove('hidden');
     if (endBtn && interview.status === 'ACTIVE') endBtn.classList.remove('hidden');
     if (evalToggleBtn) evalToggleBtn.classList.remove('hidden');
     if (interviewerNotesSection) interviewerNotesSection.classList.remove('hidden');
     if (requestHintBtn) requestHintBtn.classList.add('hidden');
 
     startBtn?.addEventListener('click', async () => {
+      startBtn.disabled = true;
       try {
         await API.interviews.start(interview.id);
         realtime.startInterviewTimer(interview.id, interview.durationMinutes);
@@ -97,21 +124,24 @@ function setupRolePermissions(interview, user) {
         startCountdown(new Date(), interview.durationMinutes);
       } catch (e) {
         alert(e.message);
+        startBtn.disabled = false;
       }
     });
 
     endBtn?.addEventListener('click', async () => {
-      if (!confirm('Are you sure you want to end this interview session?')) return;
+      if (!confirm('Are you sure you want to conclude this technical interview? This will freeze code and record the final state.')) return;
+      endBtn.disabled = true;
       try {
         await API.interviews.end(interview.id);
         realtime.endInterviewSession(interview.id);
         clearInterval(timerInterval);
-        document.getElementById('timer-display').textContent = 'COMPLETED';
+        document.getElementById('timer-display').textContent = 'CONCLUDED';
         endBtn.classList.add('hidden');
-        alert('Interview completed. You can now submit your final candidate evaluation.');
+        alert('Interview concluded. Please complete the candidate evaluation scorecard.');
         openEvaluationDrawer();
       } catch (e) {
         alert(e.message);
+        endBtn.disabled = false;
       }
     });
   } else {
@@ -126,7 +156,8 @@ function setupRolePermissions(interview, user) {
       const q = getActiveQuestion();
       if (q) {
         realtime.requestHint(interview.id, q.id);
-        alert('Hint request sent to the interviewer.');
+        requestHintBtn.textContent = 'Hint Requested';
+        requestHintBtn.disabled = true;
       }
     });
   }
@@ -134,16 +165,28 @@ function setupRolePermissions(interview, user) {
 
 function initRealtime(interviewId, user) {
   const socket = realtime.connect();
+  if (!socket) return;
+
   realtime.joinRoom(interviewId);
+
+  // Synchronize server clock
+  socket.on('session_init', ({ serverTime, startedAt, durationMinutes, status }) => {
+    if (serverTime) {
+      serverClockOffset = serverTime - Date.now();
+    }
+    if (status === 'ACTIVE' && startedAt) {
+      startCountdown(startedAt, durationMinutes);
+    }
+  });
 
   // Presence updates
   socket.on('participants_update', (participants) => {
     const listEl = document.getElementById('participants-list');
     if (!listEl) return;
     listEl.innerHTML = participants.map(p => `
-      <div class="flex items-center justify-between text-xs py-1 px-2 rounded bg-slate-900/50">
+      <div class="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg bg-slate-900/60 border border-slate-800">
         <span class="flex items-center gap-2 text-slate-300">
-          <span class="w-2 h-2 rounded-full ${p.role === 'INTERVIEWER' ? 'bg-purple-400' : 'bg-emerald-400'}"></span>
+          <span class="w-2 h-2 rounded-full ${p.role === 'INTERVIEWER' ? 'bg-purple-400' : p.role === 'ADMIN' ? 'bg-rose-400' : 'bg-emerald-400'}"></span>
           ${p.name}
         </span>
         <span class="text-[10px] text-slate-500 font-mono">${p.role}</span>
@@ -166,17 +209,31 @@ function initRealtime(interviewId, user) {
   });
 
   // Session lifecycle events
-  socket.on('interview_started', ({ startedAt, durationMinutes }) => {
+  socket.on('interview_started', ({ startedAt, durationMinutes, serverTime }) => {
+    if (serverTime) serverClockOffset = serverTime - Date.now();
     startCountdown(startedAt, durationMinutes);
-    document.getElementById('interview-status-badge').textContent = 'ACTIVE';
-    document.getElementById('interview-status-badge').className = 'px-2 py-0.5 text-xs font-semibold rounded bg-emerald-950 text-emerald-300 border border-emerald-800';
+    const badge = document.getElementById('interview-status-badge');
+    if (badge) {
+      badge.textContent = 'ACTIVE';
+      badge.className = 'px-2 py-0.5 text-xs font-semibold rounded bg-emerald-950 text-emerald-300 border border-emerald-800 animate-pulse';
+    }
+    const startBtn = document.getElementById('start-session-btn');
+    const endBtn = document.getElementById('end-session-btn');
+    if (startBtn) startBtn.classList.add('hidden');
+    if (endBtn && (user.role === 'INTERVIEWER' || user.role === 'ADMIN')) endBtn.classList.remove('hidden');
   });
 
   socket.on('interview_ended', () => {
     clearInterval(timerInterval);
-    document.getElementById('timer-display').textContent = 'COMPLETED';
-    document.getElementById('interview-status-badge').textContent = 'COMPLETED';
-    alert('This interview session has concluded.');
+    const timerEl = document.getElementById('timer-display');
+    if (timerEl) timerEl.textContent = 'CONCLUDED';
+    const badge = document.getElementById('interview-status-badge');
+    if (badge) {
+      badge.textContent = 'COMPLETED';
+      badge.className = 'px-2 py-0.5 text-xs font-semibold rounded bg-purple-950 text-purple-300 border border-purple-800';
+    }
+    const endBtn = document.getElementById('end-session-btn');
+    if (endBtn) endBtn.classList.add('hidden');
   });
 
   // Question switched by interviewer
@@ -185,6 +242,7 @@ function initRealtime(interviewId, user) {
     if (targetIdx !== -1) {
       activeQuestionIndex = targetIdx;
       renderActiveQuestion();
+      setupQuestionsNavigation();
     }
   });
 
@@ -196,8 +254,6 @@ function initRealtime(interviewId, user) {
         if (confirm(`${candidateName} requested a hint. Would you like to reveal hint 1?`)) {
           realtime.revealHint(interviewId, q.hints[0], 0);
         }
-      } else {
-        alert(`${candidateName} requested a hint, but no pre-configured hints exist for this problem.`);
       }
     }
   });
@@ -206,7 +262,7 @@ function initRealtime(interviewId, user) {
     const hintBox = document.getElementById('revealed-hints-box');
     if (hintBox) {
       hintBox.classList.remove('hidden');
-      hintBox.innerHTML += `<div class="p-2.5 bg-amber-950/40 border border-amber-800/60 rounded text-xs text-amber-200 mt-2">💡 <strong>Hint:</strong> ${hint}</div>`;
+      hintBox.innerHTML += `<div class="p-2.5 bg-amber-950/40 border border-amber-800/60 rounded text-xs text-amber-200 mt-2">💡 <strong>Interviewer Hint:</strong> ${hint}</div>`;
     }
   });
 
@@ -222,7 +278,9 @@ function startCountdown(startedAt, durationMinutes) {
   const totalMs = durationMinutes * 60 * 1000;
 
   function update() {
-    const elapsed = Date.now() - startTime;
+    // Current time synchronized with server clock offset
+    const currentServerTime = Date.now() + serverClockOffset;
+    const elapsed = currentServerTime - startTime;
     const remaining = totalMs - elapsed;
 
     if (remaining <= 0) {
@@ -252,19 +310,19 @@ function setupQuestionsNavigation() {
   if (!tabsContainer || !interviewData.questions) return;
 
   tabsContainer.innerHTML = interviewData.questions.map((iq, idx) => `
-    <button class="px-3 py-1.5 text-xs font-medium rounded-lg transition ${idx === activeQuestionIndex ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}" data-index="${idx}">
+    <button class="px-2.5 py-1 text-xs font-medium rounded-lg transition ${idx === activeQuestionIndex ? 'bg-indigo-600 text-white font-semibold' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}" data-index="${idx}">
       Q${idx + 1}: ${iq.question.title}
     </button>
   `).join('');
 
   tabsContainer.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', () => {
       const idx = Number(btn.getAttribute('data-index'));
       activeQuestionIndex = idx;
       renderActiveQuestion();
       setupQuestionsNavigation();
 
-      // If interviewer, sync active question across room
+      // If interviewer, synchronize question view across room
       if (window.currentUser.role === 'INTERVIEWER' || window.currentUser.role === 'ADMIN') {
         const q = getActiveQuestion();
         if (q) realtime.switchQuestion(interviewData.id, q.id, idx + 1);
@@ -284,20 +342,23 @@ function renderActiveQuestion() {
   document.getElementById('question-badge-diff').textContent = q.difficulty;
   document.getElementById('question-description').innerHTML = formatMarkdown(q.description);
 
-  // Set editor code if switching
-  if (q.defaultCodeSnippet) {
-    codeEditor.setCode(q.defaultCodeSnippet);
+  // Set editor starter snippet if editor is empty or at default
+  const currentCode = codeEditor.getCode().trim();
+  if (!currentCode || currentCode.startsWith('// Start coding') || currentCode.startsWith('/**')) {
+    if (q.defaultCodeSnippet) {
+      codeEditor.setCode(q.defaultCodeSnippet);
+    }
   }
 }
 
 function formatMarkdown(text) {
   if (!text) return '';
   return text
-    .replace(/^### (.*$)/gim, '<h3 class="text-md font-bold text-slate-200 mt-3 mb-1">$1</h3>')
-    .replace(/^#### (.*$)/gim, '<h4 class="text-sm font-semibold text-slate-300 mt-2 mb-1">$1</h4>')
-    .replace(/```javascript([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-3 text-xs font-mono text-emerald-400 overflow-x-auto my-2">$1</pre>')
-    .replace(/```([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-3 text-xs font-mono text-slate-300 overflow-x-auto my-2">$1</pre>')
-    .replace(/`([^`]+)`/gim, '<code class="bg-slate-800 px-1.5 py-0.5 rounded text-indigo-300 font-mono text-xs">$1</code>')
+    .replace(/^### (.*$)/gim, '<h3 class="text-sm font-bold text-slate-200 mt-3 mb-1">$1</h3>')
+    .replace(/^#### (.*$)/gim, '<h4 class="text-xs font-semibold text-slate-300 mt-2 mb-1">$1</h4>')
+    .replace(/```javascript([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-emerald-400 overflow-x-auto my-2">$1</pre>')
+    .replace(/```([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-slate-300 overflow-x-auto my-2">$1</pre>')
+    .replace(/`([^`]+)`/gim, '<code class="bg-slate-800 px-1.5 py-0.5 rounded text-indigo-300 font-mono text-[11px]">$1</code>')
     .replace(/\n/gim, '<br/>');
 }
 
@@ -338,7 +399,7 @@ async function handleSubmitCode() {
   const q = getActiveQuestion();
   if (!q) return;
 
-  if (!confirm('Are you ready to submit your solution? This will run against the complete test suite including hidden test cases.')) return;
+  if (!confirm('Are you ready to submit your solution? This evaluates your code against the complete test suite including hidden test cases.')) return;
 
   const submitBtn = document.getElementById('submit-code-btn');
   if (submitBtn) {
@@ -392,7 +453,7 @@ function renderTestResults(data, isSubmission = false) {
         <div class="p-2.5 rounded border ${t.passed ? 'bg-emerald-950/20 border-emerald-900/60' : 'bg-rose-950/20 border-rose-900/60'}">
           <div class="flex items-center justify-between text-xs mb-1">
             <span class="font-medium text-slate-300 flex items-center gap-1.5">
-              ${t.passed ? '✅' : '❌'} Case ${idx + 1} ${t.isHidden ? '<span class="text-[10px] text-amber-400 font-mono">[Hidden Test]</span>' : ''}
+              ${t.passed ? '✅' : '❌'} Case ${idx + 1} ${t.isHidden ? '<span class="text-[10px] text-amber-400 font-mono">[Hidden Verification Test]</span>' : ''}
             </span>
             <span class="font-mono text-[11px] text-slate-500">${t.executionTimeMs}ms</span>
           </div>
@@ -404,7 +465,7 @@ function renderTestResults(data, isSubmission = false) {
               <div>Actual: <span class="${t.passed ? 'text-emerald-400' : 'text-rose-400'}">${t.actualOutput}</span></div>
             </div>
           ` : `
-            <div class="text-[11px] text-slate-500 italic mt-1">Hidden test case inputs and outputs are protected.</div>
+            <div class="text-[11px] text-slate-500 italic mt-1">Hidden test case inputs and expected outputs are confidential.</div>
           `}
         </div>
       `).join('')}

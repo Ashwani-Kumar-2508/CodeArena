@@ -41,13 +41,23 @@ const API = {
     me: () => API.request('/auth/me', { method: 'GET' })
   },
 
+  // Admin Endpoints
+  admin: {
+    getStats: () => API.request('/admin/stats', { method: 'GET' }),
+    getUsers: () => API.request('/admin/users', { method: 'GET' }),
+    getInterviews: () => API.request('/admin/interviews', { method: 'GET' }),
+    getActivity: () => API.request('/admin/activity', { method: 'GET' })
+  },
+
   // Interview Endpoints
   interviews: {
     list: () => API.request('/interviews', { method: 'GET' }),
     get: (id) => API.request(`/interviews/${id}`, { method: 'GET' }),
     create: (data) => API.request('/interviews', { method: 'POST', body: data }),
     start: (id) => API.request(`/interviews/${id}/start`, { method: 'POST' }),
-    end: (id) => API.request(`/interviews/${id}/end`, { method: 'POST' })
+    end: (id) => API.request(`/interviews/${id}/end`, { method: 'POST' }),
+    cancel: (id) => API.request(`/interviews/${id}/cancel`, { method: 'POST' }),
+    getCandidates: () => API.request('/interviews/candidates', { method: 'GET' })
   },
 
   // Question Bank Endpoints

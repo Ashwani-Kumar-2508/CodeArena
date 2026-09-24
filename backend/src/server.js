@@ -14,6 +14,7 @@ const questionRoutes = require('./routes/questionRoutes');
 const codeRoutes = require('./routes/codeRoutes');
 const evaluationRoutes = require('./routes/evaluationRoutes');
 const replayRoutes = require('./routes/replayRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 const { initSocket } = require('./socket/socketHandler');
 
@@ -66,6 +67,7 @@ app.get('/api/health', (req, res) => {
 
 // REST API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/interviews', interviewRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/code', codeRoutes);

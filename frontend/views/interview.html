@@ -7,18 +7,42 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
 
-  <!-- Monaco Editor AMD Loader -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
-  <!-- Socket.IO Client -->
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- 1. Socket.IO Client (MUST load before Monaco AMD loader to avoid define.amd hijack) -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    if (typeof io === 'undefined') {
+      document.write('<script src="/socket.io/socket.io.js"><\/script>');
+    }
+  </script>
 
+  <!-- 2. Monaco Editor AMD Loader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
+  <!-- 3. CodeArena Application Modules -->
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/socket.js"></script>
   <script src="/js/editor.js"></script>
   <script src="/js/interview-room.js"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden">
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden selection:bg-indigo-500 selection:text-white">
+
+  <!-- Fullscreen Loading Overlay -->
+  <div id="room-loading-overlay" class="fixed inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center p-6">
+    <div class="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+    <h2 class="text-base font-bold text-slate-200" id="loading-status-text">Verifying credentials and loading interview room...</h2>
+    <p class="text-xs text-slate-500 mt-1">Connecting to CodeArena synchronization server</p>
+  </div>
+
+  <!-- Access Denied Modal Overlay -->
+  <div id="room-denied-overlay" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-rose-950/60 border border-rose-800 flex items-center justify-center text-rose-400 font-bold text-2xl mb-4">🚫</div>
+    <h2 class="text-xl font-bold text-white mb-2">Access Denied</h2>
+    <p id="room-denied-message" class="text-sm text-slate-400 max-w-md mb-6">You are not an authorized participant for this technical interview session.</p>
+    <a href="/views/dashboard.html" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition">
+      Return to Dashboard
+    </a>
+  </div>
 
   <!-- Top Navigation / Session Header -->
   <header class="h-14 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-4 z-20 shrink-0">
@@ -28,19 +52,26 @@
         <span class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white text-xs shadow-lg shadow-indigo-600/30 group-hover:bg-indigo-500 transition">⚔</span>
         <span class="hidden sm:inline">Code<span class="text-indigo-400">Arena</span></span>
       </a>
-      <span class="text-slate-600">/</span>
+      <span class="text-slate-700">/</span>
       <h1 id="room-title" class="text-sm font-bold text-slate-200 truncate max-w-xs md:max-w-md">Interview Room</h1>
       <span id="interview-status-badge" class="px-2 py-0.5 text-xs font-semibold rounded bg-slate-800 text-slate-300">SCHEDULED</span>
     </div>
 
-    <!-- Center: Synchronized Live Timer -->
-    <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800">
-      <span class="recording-pulse"></span>
-      <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Timer:</span>
-      <span id="timer-display" class="font-mono text-sm font-bold text-slate-200">--:--</span>
+    <!-- Center: Timer & Live Connection Pill -->
+    <div class="flex items-center gap-3">
+      <div id="connection-status-pill" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-950/80 text-amber-300 border border-amber-800">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="connection-status-text">Connecting...</span>
+      </div>
+
+      <div class="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800">
+        <span class="recording-pulse"></span>
+        <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Timer:</span>
+        <span id="timer-display" class="font-mono text-sm font-bold text-slate-200">--:--</span>
+      </div>
     </div>
 
-    <!-- Right: Interviewer Controls & Evaluation Drawer -->
+    <!-- Right: Interviewer Controls, Scorecard, and Exit -->
     <div class="flex items-center gap-2">
       <button id="start-session-btn" class="hidden px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -49,13 +80,17 @@
 
       <button id="end-session-btn" class="hidden px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-rose-600/20 transition flex items-center gap-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
-        Conclude Session
+        Conclude Interview
       </button>
 
       <button id="toggle-eval-drawer-btn" class="hidden px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-purple-600/20 transition flex items-center gap-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
         Scorecard
       </button>
+
+      <a href="/views/dashboard.html" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white text-xs font-medium transition" title="Exit room">
+        Exit
+      </a>
     </div>
   </header>
 
@@ -127,7 +162,7 @@
 
       <!-- Monaco Editor Container -->
       <div class="flex-1 relative">
-        <div id="monaco-editor-container"></div>
+        <div id="monaco-editor-container" class="w-full h-full"></div>
       </div>
 
       <!-- Bottom Panel: Test Case Results & Console (Height: 210px) -->

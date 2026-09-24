@@ -10,22 +10,25 @@
   <script src="/js/auth.js"></script>
   <script src="/js/dashboard.js"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
 
-  <!-- Nav -->
-  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
+  <!-- Navigation Bar -->
+  <header class="border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-6">
-        <a href="/" class="flex items-center gap-2 font-black text-xl tracking-tight text-white">
-          <span class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white shadow-lg shadow-indigo-600/30">⚔</span>
+      <div class="flex items-center gap-8">
+        <a href="/" class="flex items-center gap-2.5 font-black text-xl tracking-tight text-white">
+          <span class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white text-sm shadow-lg shadow-indigo-600/30">⚔</span>
           Code<span class="text-indigo-400">Arena</span>
         </a>
-        <a href="/views/dashboard.html" class="text-sm font-semibold text-indigo-400">Interviews</a>
-        <a href="/views/problems.html" class="text-sm font-medium text-slate-400 hover:text-slate-200 transition">Questions</a>
+
+        <!-- Dynamic Nav Links based on Role -->
+        <nav id="role-nav-links" class="hidden md:flex items-center gap-6 text-sm font-medium">
+          <!-- Populated by dashboard.js -->
+        </nav>
       </div>
 
       <div class="flex items-center gap-4">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2.5">
           <span id="user-display-name" class="text-sm font-semibold text-slate-200"></span>
           <span id="user-role-badge"></span>
         </div>
@@ -36,77 +39,206 @@
     </div>
   </header>
 
-  <!-- Main Content -->
+  <!-- Main View Container (Swapped dynamically based on user.role) -->
   <main class="max-w-7xl mx-auto px-6 py-8 flex-1 w-full">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-      <div>
-        <h1 id="dashboard-title" class="text-2xl font-black text-white">Workspace</h1>
-        <p id="dashboard-subtitle" class="text-sm text-slate-400 mt-1">Manage technical interview sessions</p>
+
+    <!-- 1. ADMIN DASHBOARD VIEW -->
+    <div id="admin-workspace-view" class="hidden space-y-8">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black text-white">Platform Administration</h1>
+          <p class="text-sm text-slate-400 mt-1">System-wide metrics, user directory, global interview oversight, and question governance.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="/views/problems.html" class="px-4 py-2 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 rounded-xl text-sm font-medium transition">
+            Manage Question Bank
+          </a>
+        </div>
       </div>
 
-      <button id="new-interview-btn" onclick="openModal('create-interview-modal')" class="hidden px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 font-semibold text-white rounded-xl shadow-lg shadow-indigo-600/20 text-sm transition flex items-center gap-2 self-start md:self-auto">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        Schedule Interview
-      </button>
+      <!-- Admin Stat Metric Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="glass-panel p-5 rounded-2xl">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Total Registered Users</div>
+          <div id="admin-stat-users" class="text-3xl font-black text-white font-mono">0</div>
+          <div id="admin-stat-user-breakdown" class="text-[11px] text-slate-500 mt-1.5">0 Candidates • 0 Interviewers</div>
+        </div>
+        <div class="glass-panel p-5 rounded-2xl">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Total Interviews</div>
+          <div id="admin-stat-interviews" class="text-3xl font-black text-indigo-400 font-mono">0</div>
+          <div id="admin-stat-interview-breakdown" class="text-[11px] text-slate-500 mt-1.5">0 Active • 0 Scheduled</div>
+        </div>
+        <div class="glass-panel p-5 rounded-2xl">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Completed Rounds</div>
+          <div id="admin-stat-completed" class="text-3xl font-black text-purple-400 font-mono">0</div>
+          <div class="text-[11px] text-slate-500 mt-1.5">Evaluated & Archival</div>
+        </div>
+        <div class="glass-panel p-5 rounded-2xl">
+          <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Question Bank</div>
+          <div id="admin-stat-questions" class="text-3xl font-black text-emerald-400 font-mono">0</div>
+          <div class="text-[11px] text-slate-500 mt-1.5">Multi-Format Curated Problems</div>
+        </div>
+      </div>
+
+      <!-- Admin Tabs: Users Directory & Global Interviews -->
+      <div class="space-y-4">
+        <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
+          <button id="admin-tab-interviews-btn" onclick="switchAdminTab('interviews')" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white">
+            Global Technical Interviews
+          </button>
+          <button id="admin-tab-users-btn" onclick="switchAdminTab('users')" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-slate-400 hover:text-white">
+            User Directory
+          </button>
+          <button id="admin-tab-activity-btn" onclick="switchAdminTab('activity')" class="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-slate-400 hover:text-white">
+            Audit Activity Log
+          </button>
+        </div>
+
+        <div id="admin-tab-interviews" class="space-y-3"></div>
+        <div id="admin-tab-users" class="hidden space-y-3"></div>
+        <div id="admin-tab-activity" class="hidden space-y-3"></div>
+      </div>
     </div>
 
-    <!-- Interviews Container -->
-    <div id="interviews-list" class="space-y-4">
-      <div class="p-8 text-center text-slate-500">Loading interview sessions...</div>
+    <!-- 2. INTERVIEWER DASHBOARD VIEW -->
+    <div id="interviewer-workspace-view" class="hidden space-y-8">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-black text-white">Technical Interview Workspace</h1>
+          <p class="text-sm text-slate-400 mt-1">Schedule assessment sessions, run collaborative coding rounds, and grade candidate scorecards.</p>
+        </div>
+        <button onclick="openModal('create-interview-modal')" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 font-semibold text-white rounded-xl shadow-lg shadow-indigo-600/20 text-sm transition flex items-center gap-2 self-start md:self-auto">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Schedule Technical Interview
+        </button>
+      </div>
+
+      <!-- Quick Metrics -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="glass-panel p-4 rounded-xl">
+          <div class="text-[11px] font-semibold uppercase text-slate-400">Scheduled Sessions</div>
+          <div id="interviewer-scheduled-count" class="text-2xl font-bold text-white font-mono mt-1">0</div>
+        </div>
+        <div class="glass-panel p-4 rounded-xl">
+          <div class="text-[11px] font-semibold uppercase text-slate-400">Active Live Rounds</div>
+          <div id="interviewer-active-count" class="text-2xl font-bold text-emerald-400 font-mono mt-1">0</div>
+        </div>
+        <div class="glass-panel p-4 rounded-xl">
+          <div class="text-[11px] font-semibold uppercase text-slate-400">Completed Assessments</div>
+          <div id="interviewer-completed-count" class="text-2xl font-bold text-purple-400 font-mono mt-1">0</div>
+        </div>
+      </div>
+
+      <!-- Interviewer Sessions List -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-base font-bold text-slate-200">Assigned Interviews</h2>
+          <div class="flex items-center gap-1.5 text-xs">
+            <button onclick="filterInterviews('ALL')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-medium filter-btn" data-filter="ALL">All</button>
+            <button onclick="filterInterviews('SCHEDULED')" class="px-2.5 py-1 rounded-lg bg-slate-900 text-slate-400 hover:text-white filter-btn" data-filter="SCHEDULED">Scheduled</button>
+            <button onclick="filterInterviews('ACTIVE')" class="px-2.5 py-1 rounded-lg bg-slate-900 text-slate-400 hover:text-white filter-btn" data-filter="ACTIVE">Live</button>
+            <button onclick="filterInterviews('COMPLETED')" class="px-2.5 py-1 rounded-lg bg-slate-900 text-slate-400 hover:text-white filter-btn" data-filter="COMPLETED">Completed</button>
+          </div>
+        </div>
+
+        <div id="interviewer-interviews-list" class="space-y-3">
+          <div class="p-8 text-center text-slate-500">Loading interview sessions...</div>
+        </div>
+      </div>
     </div>
 
-    <!-- Empty State -->
-    <div id="interviews-empty" class="hidden glass-panel p-12 rounded-2xl text-center">
-      <div class="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mx-auto mb-4 font-mono text-xl">⚔</div>
-      <h3 class="text-lg font-bold text-slate-200 mb-1">No interviews scheduled yet</h3>
-      <p class="text-sm text-slate-400 max-w-sm mx-auto mb-6">Create a technical interview session to invite a candidate and evaluate their problem solving.</p>
+    <!-- 3. CANDIDATE DASHBOARD VIEW -->
+    <div id="candidate-workspace-view" class="hidden space-y-8">
+      <!-- Welcome Hero -->
+      <div class="glass-panel p-6 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-purple-950/30">
+        <h1 class="text-2xl font-black text-white">Candidate Assessment Portal</h1>
+        <p class="text-sm text-slate-300 mt-2 max-w-2xl leading-relaxed">
+          Welcome to your technical interview workspace. You will find your scheduled coding rounds below. When your interviewer begins the session, the room will transition to <span class="text-emerald-400 font-semibold">Live</span>, allowing you to join and collaboratively solve problems.
+        </p>
+      </div>
+
+      <!-- Candidate Interviews List -->
+      <div class="space-y-4">
+        <h2 class="text-base font-bold text-slate-200">Your Technical Interview Rounds</h2>
+        <div id="candidate-interviews-list" class="space-y-3">
+          <div class="p-8 text-center text-slate-500">Loading your assigned sessions...</div>
+        </div>
+      </div>
     </div>
+
   </main>
 
   <!-- Create Interview Modal -->
-  <div id="create-interview-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="glass-panel bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+  <div id="create-interview-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
-        <h3 class="text-lg font-bold text-white">Create Technical Interview</h3>
-        <button onclick="closeModal('create-interview-modal')" class="text-slate-400 hover:text-white">&times;</button>
+        <div>
+          <h3 class="text-lg font-bold text-white">Schedule Technical Interview</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Assign candidate, schedule date/time, and attach technical problems.</p>
+        </div>
+        <button onclick="closeModal('create-interview-modal')" class="text-slate-400 hover:text-white text-xl">&times;</button>
       </div>
 
-      <div id="create-error" class="hidden mb-4 p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-xs text-rose-300"></div>
+      <div id="create-error" class="hidden mb-4 p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-xs text-rose-300 font-medium"></div>
 
       <form id="create-interview-form" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Interview Title</label>
-          <input type="text" name="title" required placeholder="e.g. Senior Frontend Engineer Technical Screen" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500" />
+          <input type="text" name="title" required placeholder="e.g. Senior Full-Stack Engineer Technical Screen" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500" />
         </div>
 
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Description / Focus Areas</label>
-          <textarea name="description" rows="2" placeholder="e.g. Algorithms, Data Structures, Concurrency" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500"></textarea>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Focus Areas & Competencies</label>
+          <textarea name="description" rows="2" placeholder="e.g. Algorithmic problem solving, data structures, and edge-case validation." class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500"></textarea>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Candidate Email</label>
-            <input type="email" name="candidateEmail" placeholder="candidate@codearena.dev" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500" />
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Assign Candidate</label>
+            <select name="candidateId" id="modal-candidate-select" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500">
+              <option value="">Select a registered candidate...</option>
+            </select>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Duration (Minutes)</label>
-            <input type="number" name="durationMinutes" value="60" min="15" max="180" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500" />
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Duration</label>
+            <select name="durationMinutes" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500">
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60" selected>60 minutes</option>
+              <option value="90">90 minutes</option>
+              <option value="120">120 minutes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Scheduled Date</label>
+            <input type="date" name="scheduledDate" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Scheduled Time</label>
+            <input type="time" name="scheduledTime" required value="10:00" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500" />
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">Select Questions to Assign</label>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-semibold uppercase text-slate-400">Select Questions to Assign</label>
+            <span id="selected-questions-counter" class="text-xs font-mono font-semibold text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800">
+              Selected: 0 questions
+            </span>
+          </div>
           <div id="modal-questions-list" class="space-y-2 max-h-48 overflow-y-auto pr-1">
-            <div class="text-xs text-slate-500">Loading question templates...</div>
+            <div class="text-xs text-slate-500 p-2">Loading question catalog...</div>
           </div>
         </div>
 
         <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
           <button type="button" onclick="closeModal('create-interview-modal')" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition">Cancel</button>
-          <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/20 transition">Create & Schedule</button>
+          <button type="submit" id="create-submit-btn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/20 transition">Schedule Session</button>
         </div>
       </form>
     </div>

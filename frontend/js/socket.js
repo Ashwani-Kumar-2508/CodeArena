@@ -11,41 +11,95 @@ class RealtimeClient {
   connect() {
     if (this.socket) return this.socket;
 
-    this.socket = io({
-      withCredentials: true,
-      transports: ['websocket', 'polling']
-    });
+    if (typeof io === 'undefined') {
+      console.error('[Realtime] Socket.IO client library (io) is not loaded.');
+      this.updateConnectionStatus('error', 'Socket client missing');
+      return null;
+    }
 
-    this.socket.on('connect', () => {
-      this.connected = true;
-      console.log('[Realtime] Connected to CodeArena Socket gateway');
-    });
+    try {
+      this.updateConnectionStatus('connecting', 'Connecting...');
+      this.socket = io({
+        withCredentials: true,
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000
+      });
 
-    this.socket.on('disconnect', () => {
-      this.connected = false;
-      console.log('[Realtime] Disconnected from server');
-    });
+      this.socket.on('connect', () => {
+        this.connected = true;
+        this.updateConnectionStatus('connected', 'Connected');
+        console.log('[Realtime] Connected to CodeArena Socket gateway');
+      });
 
-    return this.socket;
+      this.socket.on('disconnect', (reason) => {
+        this.connected = false;
+        this.updateConnectionStatus('disconnected', 'Disconnected');
+        console.warn('[Realtime] Disconnected from server:', reason);
+      });
+
+      this.socket.on('connect_error', (error) => {
+        this.connected = false;
+        this.updateConnectionStatus('reconnecting', 'Reconnecting...');
+        console.warn('[Realtime] Connection error:', error.message);
+      });
+
+      this.socket.on('room_error', ({ message }) => {
+        console.error('[Realtime Room Error]', message);
+        if (window.onRoomSecurityError) {
+          window.onRoomSecurityError(message);
+        } else {
+          alert(`Access Denied: ${message}`);
+          window.location.href = '/views/dashboard.html';
+        }
+      });
+
+      return this.socket;
+    } catch (err) {
+      console.error('[Realtime] Failed to initialize socket:', err);
+      this.updateConnectionStatus('error', 'Connection failed');
+      return null;
+    }
+  }
+
+  updateConnectionStatus(state, label) {
+    const pill = document.getElementById('connection-status-pill');
+    const text = document.getElementById('connection-status-text');
+    if (!pill || !text) return;
+
+    text.textContent = label;
+
+    if (state === 'connected') {
+      pill.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-800';
+      pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> <span>${label}</span>`;
+    } else if (state === 'connecting' || state === 'reconnecting') {
+      pill.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-amber-950/80 text-amber-300 border border-amber-800';
+      pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> <span>${label}</span>`;
+    } else {
+      pill.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-rose-950/80 text-rose-300 border border-rose-800';
+      pill.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> <span>${label}</span>`;
+    }
   }
 
   joinRoom(interviewId) {
     if (!this.socket) this.connect();
-    this.socket.emit('join_room', { interviewId });
+    if (this.socket) {
+      this.socket.emit('join_room', { interviewId });
+    }
   }
 
   sendCodeChange(interviewId, code, delta) {
-    if (!this.socket) return;
+    if (!this.socket || !this.connected) return;
     this.socket.emit('code_change', { interviewId, code, delta });
   }
 
   sendCursorMove(interviewId, position) {
-    if (!this.socket) return;
+    if (!this.socket || !this.connected) return;
     this.socket.emit('cursor_move', { interviewId, position });
   }
 
   sendChat(interviewId, message) {
-    if (!this.socket) return;
+    if (!this.socket || !this.connected) return;
     this.socket.emit('send_chat', { interviewId, message });
   }
 
