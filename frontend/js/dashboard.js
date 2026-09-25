@@ -347,6 +347,89 @@ window.cancelSession = cancelSession;
 async function initCandidateWorkspace() {
   document.getElementById('candidate-workspace-view')?.classList.remove('hidden');
 
+  await loadCandidatePracticeDashboard();
+  loadCandidateInterviews();
+}
+
+async function loadCandidatePracticeDashboard() {
+  const practiceContainer = document.getElementById('candidate-practice-list');
+  if (!practiceContainer) return;
+
+  try {
+    const res = await API.practice.getDashboard();
+    const stats = res.data.stats || { saved: 0, attempted: 0, solved: 0 };
+    const list = res.data.practiceList || [];
+
+    const savedEl = document.getElementById('candidate-stat-saved');
+    const attemptedEl = document.getElementById('candidate-stat-attempted');
+    const solvedEl = document.getElementById('candidate-stat-solved');
+
+    if (savedEl) savedEl.textContent = stats.saved;
+    if (attemptedEl) attemptedEl.textContent = stats.attempted;
+    if (solvedEl) solvedEl.textContent = stats.solved;
+
+    if (list.length === 0) {
+      practiceContainer.innerHTML = `
+        <div class="glass-panel p-6 text-center text-slate-500 rounded-xl border border-slate-800">
+          No practice problems bookmarked yet. <a href="/views/problems.html" class="text-indigo-400 hover:underline">Explore the question catalog</a> to start practicing.
+        </div>
+      `;
+      return;
+    }
+
+    practiceContainer.innerHTML = `
+      <div class="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-900 border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider">
+            <tr>
+              <th class="p-3.5">Problem</th>
+              <th class="p-3.5">Category</th>
+              <th class="p-3.5">Difficulty</th>
+              <th class="p-3.5">Status</th>
+              <th class="p-3.5 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60 font-mono">
+            ${list.map(item => `
+              <tr class="hover:bg-slate-900/40 transition">
+                <td class="p-3.5 font-sans font-semibold text-slate-200">
+                  <div class="flex items-center gap-2">
+                    <span>${item.question.title}</span>
+                    <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-900 border border-slate-800 text-indigo-300 font-mono">${item.question.type}</span>
+                  </div>
+                </td>
+                <td class="p-3.5 text-slate-400 font-sans">${item.question.category || 'General'}</td>
+                <td class="p-3.5">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono ${
+                    item.question.difficulty === 'EASY' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                    item.question.difficulty === 'MEDIUM' ? 'bg-amber-950 text-amber-400 border border-amber-800' :
+                    'bg-rose-950 text-rose-400 border border-rose-800'
+                  }">${item.question.difficulty}</span>
+                </td>
+                <td class="p-3.5">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                    item.status === 'SOLVED' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                    item.status === 'ATTEMPTED' ? 'bg-amber-950 text-amber-400 border border-amber-800' :
+                    'bg-slate-800 text-slate-300 border border-slate-700'
+                  }">${item.status}</span>
+                </td>
+                <td class="p-3.5 text-right font-sans">
+                  <a href="/views/practice.html?id=${item.question.id}" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+                    ${item.status === 'SOLVED' ? 'Practice Again' : 'Solve Now &rarr;'}
+                  </a>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (err) {
+    console.warn('Failed to load candidate practice stats:', err);
+  }
+}
+
+async function loadCandidateInterviews() {
   const container = document.getElementById('candidate-interviews-list');
   if (!container) return;
 
@@ -410,6 +493,8 @@ async function initCandidateWorkspace() {
 /* =========================================================================
    MODAL & INTERVIEW CREATION HELPERS
    ========================================================================= */
+let selectedQuestionsOrdered = [];
+
 async function loadCandidateSelector() {
   const select = document.getElementById('modal-candidate-select');
   if (!select) return;
@@ -438,12 +523,14 @@ async function loadQuestionLibraryModal() {
   try {
     const res = await API.questions.list();
     const questions = res.data.questions || [];
+    selectedQuestionsOrdered = [];
 
-    container.innerHTML = questions.map(q => `
-      <label class="flex items-start gap-3 p-3 bg-slate-950/80 border border-slate-800 rounded-xl cursor-pointer hover:border-slate-700 transition">
+    container.innerHTML = questions.map((q, idx) => `
+      <label class="flex items-start gap-3 p-3 bg-slate-950/80 border border-slate-800 rounded-xl cursor-pointer hover:border-slate-700 transition" id="label-q-${q.id}">
         <input type="checkbox" name="questionIds" value="${q.id}" class="mt-1 rounded text-indigo-600 focus:ring-indigo-500 border-slate-700 bg-slate-900 question-checkbox" />
         <div class="flex-1">
           <div class="flex items-center gap-2">
+            <span class="question-seq-badge hidden px-1.5 py-0.2 rounded bg-indigo-600 text-white font-mono text-[10px] font-bold"></span>
             <span class="font-medium text-slate-200 text-xs">${q.title}</span>
             <span class="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-indigo-300 font-mono border border-slate-800">${q.type}</span>
             <span class="text-[10px] px-2 py-0.5 rounded font-mono ${q.difficulty === 'EASY' ? 'bg-emerald-950 text-emerald-400' : 'bg-amber-950 text-amber-400'}">${q.difficulty}</span>
@@ -453,19 +540,46 @@ async function loadQuestionLibraryModal() {
       </label>
     `).join('');
 
-    // Bind checkboxes to counter
+    // Bind checkboxes to ordered list and counter
     const checkboxes = container.querySelectorAll('.question-checkbox');
-    const updateCounter = () => {
-      const checkedCount = container.querySelectorAll('.question-checkbox:checked').length;
-      if (counterEl) counterEl.textContent = `Selected: ${checkedCount} questions`;
+    const updateSelectionUI = () => {
+      checkboxes.forEach(cb => {
+        const qid = cb.value;
+        const parent = document.getElementById(`label-q-${qid}`);
+        const badge = parent?.querySelector('.question-seq-badge');
+        const pos = selectedQuestionsOrdered.indexOf(qid);
+        if (pos !== -1) {
+          cb.checked = true;
+          if (badge) {
+            badge.textContent = `Q${pos + 1}`;
+            badge.classList.remove('hidden');
+          }
+        } else {
+          cb.checked = false;
+          if (badge) badge.classList.add('hidden');
+        }
+      });
+      if (counterEl) counterEl.textContent = `Selected: ${selectedQuestionsOrdered.length} questions`;
     };
 
-    checkboxes.forEach(cb => cb.addEventListener('change', updateCounter));
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', () => {
+        const qid = cb.value;
+        if (cb.checked) {
+          if (!selectedQuestionsOrdered.includes(qid)) {
+            selectedQuestionsOrdered.push(qid);
+          }
+        } else {
+          selectedQuestionsOrdered = selectedQuestionsOrdered.filter(id => id !== qid);
+        }
+        updateSelectionUI();
+      });
+    });
 
-    // Check first 2 by default
-    if (checkboxes.length > 0) checkboxes[0].checked = true;
-    if (checkboxes.length > 1) checkboxes[1].checked = true;
-    updateCounter();
+    // Default select first two questions in sequence
+    if (questions.length > 0) selectedQuestionsOrdered.push(questions[0].id);
+    if (questions.length > 1) selectedQuestionsOrdered.push(questions[1].id);
+    updateSelectionUI();
 
   } catch (e) {
     container.innerHTML = '<p class="text-xs text-slate-500 p-2">Failed to load question templates.</p>';
@@ -487,8 +601,7 @@ async function handleCreateInterview(e) {
   const scheduledDate = form.scheduledDate.value;
   const scheduledTime = form.scheduledTime.value;
 
-  const checkboxes = form.querySelectorAll('input[name="questionIds"]:checked');
-  const questionIds = Array.from(checkboxes).map(cb => cb.value);
+  const questionIds = selectedQuestionsOrdered.length > 0 ? selectedQuestionsOrdered : Array.from(form.querySelectorAll('input[name="questionIds"]:checked')).map(cb => cb.value);
 
   if (!candidateId) {
     showCreateError('Please select a candidate for this interview round.');

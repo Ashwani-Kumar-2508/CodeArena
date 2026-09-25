@@ -24,6 +24,7 @@ enum InterviewStatus {
 enum QuestionType {
   CODING
   TECHNICAL
+  SYSTEM_DESIGN
   BEHAVIORAL
   MCQ
   FOLLOW_UP
@@ -62,19 +63,31 @@ enum Recommendation {
   STRONG_NO_HIRE
 }
 
+enum PracticeStatus {
+  SAVED
+  ATTEMPTED
+  SOLVED
+}
+
 model User {
-  id                    String        @id @default(uuid())
-  email                 String        @unique
+  id                    String              @id @default(uuid())
+  email                 String              @unique
   passwordHash          String
   name                  String
-  role                  Role          @default(CANDIDATE)
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  role                  Role                @default(CANDIDATE)
+  isVerified            Boolean             @default(true)
+  verificationToken     String?
+  verificationExpires   DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
-  interviewsAsLead      Interview[]   @relation("InterviewerRelation")
-  interviewsAsCandidate Interview[]   @relation("CandidateRelation")
+  interviewsAsLead      Interview[]         @relation("InterviewerRelation")
+  interviewsAsCandidate Interview[]         @relation("CandidateRelation")
   evaluationsGiven      Evaluation[]
   events                InterviewEvent[]
+  createdQuestions      Question[]          @relation("QuestionAuthor")
+  practiceQuestions     PracticeQuestion[]
+  practiceSubmissions   PracticeSubmission[]
 
   @@index([email])
 }
@@ -111,17 +124,33 @@ model Question {
   description        String
   type               QuestionType        @default(CODING)
   difficulty         Difficulty          @default(MEDIUM)
+  category           String              @default("GENERAL")
+  tags               Json?               // list of string tags, e.g. ["Two Pointer", "Hash Map"]
+  supportedLanguages Json?               // list of string languages, e.g. ["javascript", "python", "java", "cpp", "c"]
+  starterCode        Json?               // map of lang -> starter code snippet
   defaultCodeSnippet String?
   language           String              @default("javascript")
-  options            Json?
+  constraints        String?
+  examples           Json?               // list of { input, output, explanation }
+  options            Json?               // for MCQ: ["Option A", "Option B", ...]
+  correctAnswer      String?             // for MCQ: strictly hidden from candidate APIs
   hints              Json?
   rubric             Json?
+  createdById        String?
+  isSystem           Boolean             @default(true)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
+  author             User?               @relation("QuestionAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   testCases          TestCase[]
   interviewQuestions InterviewQuestion[]
   codingSessions     CodingSession[]
+  practiceRecords    PracticeQuestion[]
+  practiceSubmissions PracticeSubmission[]
+
+  @@index([type, difficulty])
+  @@index([category])
+  @@index([createdById])
 }
 
 model TestCase {
@@ -233,4 +262,41 @@ model InterviewEvent {
   user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([interviewId, timestamp])
+}
+
+model PracticeQuestion {
+  id              String         @id @default(uuid())
+  userId          String
+  questionId      String
+  status          PracticeStatus @default(SAVED)
+  savedAt         DateTime       @default(now())
+  solvedAt        DateTime?
+  lastAttemptedAt DateTime?
+  notes           String?
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question        Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId, status])
+}
+
+model PracticeSubmission {
+  id              String           @id @default(uuid())
+  userId          String
+  questionId      String
+  code            String
+  language        String           @default("javascript")
+  status          SubmissionStatus @default(PENDING)
+  passedCount     Int              @default(0)
+  totalCount      Int              @default(0)
+  executionTimeMs Float            @default(0)
+  memoryUsedKb    Float            @default(0)
+  testResults     Json?
+  submittedAt     DateTime         @default(now())
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question        Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, questionId])
 }

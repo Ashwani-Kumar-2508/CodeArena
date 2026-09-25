@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Problem Bank — CodeArena</title>
+  <title>Question Bank & Practice — CodeArena</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/css/style.css">
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
 
   <!-- Nav -->
   <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
@@ -19,8 +19,11 @@
           <span class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white shadow-lg shadow-indigo-600/30">⚔</span>
           Code<span class="text-indigo-400">Arena</span>
         </a>
-        <a href="/views/dashboard.html" class="text-sm font-medium text-slate-400 hover:text-slate-200 transition">Interviews</a>
-        <a href="/views/problems.html" class="text-sm font-semibold text-indigo-400">Questions</a>
+        <a href="/views/dashboard.html" class="text-sm font-medium text-slate-400 hover:text-slate-200 transition">Interviews & Dashboard</a>
+        <a href="/views/problems.html" class="text-sm font-semibold text-indigo-400">Question Catalog</a>
+        <a id="nav-practice-link" href="/views/practice.html" class="text-sm font-medium text-slate-400 hover:text-emerald-400 transition flex items-center gap-1">
+          <span>🎯</span> Practice Mode
+        </a>
       </div>
 
       <div class="flex items-center gap-4">
@@ -28,90 +31,418 @@
           <span id="user-display-name" class="text-sm font-semibold text-slate-200"></span>
           <span id="user-role-badge"></span>
         </div>
+        <button onclick="Auth.logout()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-rose-400 transition">
+          Sign Out
+        </button>
       </div>
     </div>
   </header>
 
   <!-- Main Content -->
   <main class="max-w-7xl mx-auto px-6 py-8 flex-1 w-full">
+    <!-- Header Banner -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
       <div>
-        <h1 class="text-2xl font-black text-white">Question Catalog</h1>
-        <p class="text-sm text-slate-400 mt-1">Curated multi-format assessment problems: Coding, System Design, Behavioral & MCQs</p>
+        <h1 class="text-2xl font-black text-white">Question Catalog & Practice Bank</h1>
+        <p class="text-sm text-slate-400 mt-1">Multi-format technical assessment problems: Algorithms, System Architecture, Behavioral & MCQs.</p>
+      </div>
+
+      <!-- Action Button for Interviewer / Admin -->
+      <div class="flex items-center gap-3">
+        <button id="open-create-q-btn" class="hidden px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-sm shadow-lg shadow-indigo-600/20 transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Create New Question
+        </button>
       </div>
     </div>
 
-    <!-- Filters -->
-    <div class="flex flex-wrap gap-2 mb-6">
-      <button onclick="filterQuestions('ALL')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white filter-btn" data-filter="ALL">All Formats</button>
-      <button onclick="filterQuestions('CODING')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white filter-btn" data-filter="CODING">Coding</button>
-      <button onclick="filterQuestions('TECHNICAL')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white filter-btn" data-filter="TECHNICAL">System Design</button>
-      <button onclick="filterQuestions('BEHAVIORAL')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white filter-btn" data-filter="BEHAVIORAL">Behavioral</button>
+    <!-- Search & Multi-Filter Controls Bar -->
+    <div class="glass-panel p-4 rounded-2xl mb-8 border border-slate-800 space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <!-- Search Input -->
+        <div class="md:col-span-2 relative">
+          <input type="text" id="filter-search" placeholder="Search by title, keywords, or topics..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-indigo-500" />
+          <span class="absolute left-3 top-2.5 text-slate-500 text-xs">🔍</span>
+        </div>
+
+        <!-- Format Dropdown -->
+        <div>
+          <select id="filter-type" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 font-mono">
+            <option value="ALL">All Formats</option>
+            <option value="CODING">Coding (Algorithms)</option>
+            <option value="SYSTEM_DESIGN">System Design</option>
+            <option value="TECHNICAL">Technical Deep-Dive</option>
+            <option value="BEHAVIORAL">Behavioral</option>
+            <option value="MCQ">Multiple Choice (MCQ)</option>
+          </select>
+        </div>
+
+        <!-- Difficulty Dropdown -->
+        <div>
+          <select id="filter-difficulty" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 font-mono">
+            <option value="ALL">All Difficulties</option>
+            <option value="EASY">Easy</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HARD">Hard</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="flex items-center gap-2 pt-1 border-t border-slate-800/60 overflow-x-auto text-xs pb-1" id="category-pills">
+        <span class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider shrink-0">Category:</span>
+        <button onclick="setCategoryFilter('ALL')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white shrink-0 cat-btn" data-cat="ALL">All</button>
+        <button onclick="setCategoryFilter('Algorithms')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn" data-cat="Algorithms">Algorithms</button>
+        <button onclick="setCategoryFilter('Data Structures')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn" data-cat="Data Structures">Data Structures</button>
+        <button onclick="setCategoryFilter('Distributed Systems')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-cat" data-cat="Distributed Systems">Distributed Systems</button>
+        <button onclick="setCategoryFilter('System Architecture')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn" data-cat="System Architecture">System Architecture</button>
+        <button onclick="setCategoryFilter('Leadership & Ownership')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn" data-cat="Leadership & Ownership">Behavioral</button>
+      </div>
     </div>
 
     <!-- Questions Grid -->
     <div id="questions-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-      <div class="p-8 text-center text-slate-500 col-span-full">Loading question repository...</div>
+      <div class="p-8 text-center text-slate-500 col-span-full">Loading curated question catalog...</div>
     </div>
   </main>
 
+  <!-- Create / Edit Question Modal -->
+  <div id="question-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-panel bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+        <div>
+          <h3 id="modal-title" class="text-lg font-bold text-white">Create New Assessment Question</h3>
+          <p class="text-xs text-slate-400 mt-0.5">Define multi-format questions, starter code, test suites, or evaluation rubrics.</p>
+        </div>
+        <button onclick="closeQuestionModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+
+      <div id="modal-error" class="hidden mb-4 p-3 rounded-lg bg-rose-950/40 border border-rose-800 text-xs text-rose-300"></div>
+
+      <form id="question-form" class="space-y-4">
+        <input type="hidden" name="questionId" id="q-form-id" />
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Problem Title</label>
+          <input type="text" name="title" required placeholder="e.g. Rate Limiter with Sliding Window" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-sm focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Format Type</label>
+            <select name="type" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 font-mono">
+              <option value="CODING">CODING</option>
+              <option value="SYSTEM_DESIGN">SYSTEM_DESIGN</option>
+              <option value="TECHNICAL">TECHNICAL</option>
+              <option value="BEHAVIORAL">BEHAVIORAL</option>
+              <option value="MCQ">MCQ</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Difficulty</label>
+            <select name="difficulty" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 font-mono">
+              <option value="EASY">EASY</option>
+              <option value="MEDIUM" selected>MEDIUM</option>
+              <option value="HARD">HARD</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Category</label>
+            <input type="text" name="category" placeholder="e.g. Distributed Systems" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-indigo-500" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Tags (Comma-Separated)</label>
+          <input type="text" name="tags" placeholder="e.g. hash-map, rate-limiting, algorithms" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:border-indigo-500 font-mono" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Description (Markdown Supported)</label>
+          <textarea name="description" rows="4" required placeholder="Full problem statement, input/output specifications, and context..." class="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Default Starter Code (JavaScript or General)</label>
+          <textarea name="defaultCodeSnippet" rows="3" placeholder="// Starter code template for candidates..." class="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Test Cases (JSON format array: [{"input": "...", "expectedOutput": "...", "isHidden": false}])</label>
+          <textarea name="testCasesJson" rows="3" placeholder='[{"input": "[2, 7, 11, 15], 9", "expectedOutput": "[0, 1]", "isHidden": false}]' class="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 text-xs font-mono focus:outline-none focus:border-indigo-500"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+          <button type="button" onclick="closeQuestionModal()" class="px-4 py-2 text-xs text-slate-400 hover:text-white">Cancel</button>
+          <button type="submit" id="modal-submit-btn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition">Save Question</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     let allQuestions = [];
+    let bookmarkedQuestionIds = new Set();
+    let currentUser = null;
+    let selectedCategory = 'ALL';
 
     document.addEventListener('DOMContentLoaded', async () => {
-      await Auth.init();
+      currentUser = await Auth.init();
+
+      if (currentUser) {
+        if (currentUser.role === 'ADMIN' || currentUser.role === 'INTERVIEWER') {
+          document.getElementById('open-create-q-btn')?.classList.remove('hidden');
+        }
+        await loadBookmarks();
+      }
+
       loadQuestions();
+
+      // Bind filter controls
+      document.getElementById('filter-search')?.addEventListener('input', applyFilters);
+      document.getElementById('filter-type')?.addEventListener('change', applyFilters);
+      document.getElementById('filter-difficulty')?.addEventListener('change', applyFilters);
+
+      document.getElementById('open-create-q-btn')?.addEventListener('click', () => openCreateModal());
+      document.getElementById('question-form')?.addEventListener('submit', handleSaveQuestion);
     });
 
+    async function loadBookmarks() {
+      try {
+        const res = await API.practice.getDashboard();
+        const list = res.data.practiceList || [];
+        bookmarkedQuestionIds = new Set(list.map(b => b.questionId));
+      } catch (e) {
+        console.warn('Could not load candidate practice bookmarks:', e);
+      }
+    }
+
     async function loadQuestions() {
+      const container = document.getElementById('questions-grid');
       try {
         const res = await API.questions.list();
         allQuestions = res.data.questions || [];
-        renderQuestions(allQuestions);
+        applyFilters();
       } catch (err) {
-        document.getElementById('questions-grid').innerHTML = `<div class="p-4 text-xs text-rose-400 col-span-full">${err.message}</div>`;
+        container.innerHTML = `<div class="p-8 text-center text-rose-400 col-span-full">${err.message}</div>`;
       }
+    }
+
+    function applyFilters() {
+      const search = document.getElementById('filter-search')?.value.toLowerCase().trim() || '';
+      const type = document.getElementById('filter-type')?.value || 'ALL';
+      const difficulty = document.getElementById('filter-difficulty')?.value || 'ALL';
+
+      let filtered = allQuestions;
+
+      if (type !== 'ALL') {
+        filtered = filtered.filter(q => q.type === type);
+      }
+
+      if (difficulty !== 'ALL') {
+        filtered = filtered.filter(q => q.difficulty === difficulty);
+      }
+
+      if (selectedCategory !== 'ALL') {
+        filtered = filtered.filter(q => q.category === selectedCategory);
+      }
+
+      if (search) {
+        filtered = filtered.filter(q =>
+          q.title.toLowerCase().includes(search) ||
+          q.description.toLowerCase().includes(search) ||
+          (q.tags && q.tags.some(t => t.toLowerCase().includes(search))) ||
+          (q.category && q.category.toLowerCase().includes(search))
+        );
+      }
+
+      renderQuestions(filtered);
+    }
+
+    function setCategoryFilter(cat) {
+      selectedCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        if (btn.getAttribute('data-cat') === cat) {
+          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white shrink-0 cat-btn';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn';
+        }
+      });
+      applyFilters();
     }
 
     function renderQuestions(questions) {
       const container = document.getElementById('questions-grid');
       if (questions.length === 0) {
-        container.innerHTML = `<div class="p-8 text-center text-slate-500 col-span-full">No questions match filter.</div>`;
+        container.innerHTML = `<div class="glass-panel p-12 text-center text-slate-500 col-span-full rounded-2xl">No questions match your filter criteria.</div>`;
         return;
       }
 
-      container.innerHTML = questions.map(q => `
-        <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between hover:border-indigo-500/40 transition">
-          <div>
-            <div class="flex items-center justify-between mb-3">
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800">${q.type}</span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono ${q.difficulty === 'EASY' ? 'bg-emerald-950 text-emerald-400' : 'bg-amber-950 text-amber-400'}">${q.difficulty}</span>
-            </div>
-            <h3 class="text-base font-bold text-white mb-2">${q.title}</h3>
-            <p class="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-4">${q.description.replace(/[#*`]/g, '')}</p>
-          </div>
+      container.innerHTML = questions.map(q => {
+        const isBookmarked = bookmarkedQuestionIds.has(q.id);
+        const canManage = currentUser && (currentUser.role === 'ADMIN' || (currentUser.role === 'INTERVIEWER' && q.createdById === currentUser.id));
 
-          <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-            <span>${q.testCases ? q.testCases.length + ' Test Cases' : 'Rubric Evaluation'}</span>
-            <span class="font-mono text-indigo-400">${q.language || 'General'}</span>
+        return `
+          <div class="glass-panel p-5 rounded-2xl flex flex-col justify-between hover:border-indigo-500/40 transition border border-slate-800">
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800">${q.type}</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono ${
+                    q.difficulty === 'EASY' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                    q.difficulty === 'MEDIUM' ? 'bg-amber-950 text-amber-400 border border-amber-800' :
+                    'bg-rose-950 text-rose-400 border border-rose-800'
+                  }">${q.difficulty}</span>
+                </div>
+                ${q.category ? `<span class="text-[10px] text-slate-400 font-mono">${q.category}</span>` : ''}
+              </div>
+
+              <h3 class="text-base font-bold text-white mb-2">${q.title}</h3>
+              <p class="text-xs text-slate-400 line-clamp-3 leading-relaxed mb-4">${q.description.replace(/[#*`]/g, '')}</p>
+
+              ${q.tags && q.tags.length > 0 ? `
+                <div class="flex flex-wrap gap-1 mb-4">
+                  ${q.tags.slice(0, 3).map(t => `<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-900 text-slate-400 font-mono">#${t}</span>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2">
+                <button onclick="toggleBookmark('${q.id}')" class="px-2.5 py-1 rounded-lg text-xs font-medium border transition ${
+                  isBookmarked ? 'bg-emerald-950/80 text-emerald-400 border-emerald-800' : 'bg-slate-900 text-slate-400 hover:text-white border-slate-800'
+                }">
+                  ${isBookmarked ? '✓ In Practice' : '+ Practice'}
+                </button>
+
+                <a href="/views/practice.html?id=${q.id}" class="px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition">
+                  Solve &rarr;
+                </a>
+              </div>
+
+              ${canManage ? `
+                <div class="flex items-center gap-2">
+                  <button onclick="openEditModal('${q.id}')" class="text-slate-400 hover:text-indigo-400 transition" title="Edit Question">✏</button>
+                  <button onclick="handleDeleteQuestion('${q.id}')" class="text-slate-400 hover:text-rose-400 transition" title="Delete Question">🗑</button>
+                </div>
+              ` : ''}
+            </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
-    function filterQuestions(type) {
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        if (btn.getAttribute('data-filter') === type) {
-          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white filter-btn';
+    async function toggleBookmark(questionId) {
+      if (!currentUser) {
+        alert('Please log in to add problems to your practice workspace.');
+        return;
+      }
+      try {
+        if (bookmarkedQuestionIds.has(questionId)) {
+          await API.practice.remove(questionId);
+          bookmarkedQuestionIds.delete(questionId);
         } else {
-          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-white filter-btn';
+          await API.practice.add(questionId);
+          bookmarkedQuestionIds.add(questionId);
         }
-      });
+        applyFilters();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
 
-      if (type === 'ALL') {
-        renderQuestions(allQuestions);
-      } else {
-        renderQuestions(allQuestions.filter(q => q.type === type));
+    function openCreateModal() {
+      document.getElementById('modal-title').textContent = 'Create New Assessment Question';
+      document.getElementById('q-form-id').value = '';
+      document.getElementById('question-form').reset();
+      document.getElementById('modal-error')?.classList.add('hidden');
+      document.getElementById('question-modal')?.classList.remove('hidden');
+    }
+
+    function openEditModal(id) {
+      const q = allQuestions.find(item => item.id === id);
+      if (!q) return;
+
+      document.getElementById('modal-title').textContent = 'Edit Question';
+      document.getElementById('q-form-id').value = q.id;
+      const form = document.getElementById('question-form');
+      form.title.value = q.title || '';
+      form.type.value = q.type || 'CODING';
+      form.difficulty.value = q.difficulty || 'MEDIUM';
+      form.category.value = q.category || '';
+      form.tags.value = q.tags ? q.tags.join(', ') : '';
+      form.description.value = q.description || '';
+      form.defaultCodeSnippet.value = q.defaultCodeSnippet || '';
+      form.testCasesJson.value = q.testCases ? JSON.stringify(q.testCases, null, 2) : '';
+
+      document.getElementById('modal-error')?.classList.add('hidden');
+      document.getElementById('question-modal')?.classList.remove('hidden');
+    }
+
+    function closeQuestionModal() {
+      document.getElementById('question-modal')?.classList.add('hidden');
+    }
+
+    async function handleSaveQuestion(e) {
+      e.preventDefault();
+      const form = e.target;
+      const id = document.getElementById('q-form-id').value;
+      const submitBtn = document.getElementById('modal-submit-btn');
+
+      const tagsArray = form.tags.value.split(',').map(t => t.trim()).filter(Boolean);
+      let testCases = undefined;
+      if (form.testCasesJson.value.trim()) {
+        try {
+          testCases = JSON.parse(form.testCasesJson.value.trim());
+        } catch (err) {
+          alert('Invalid JSON in test cases field: ' + err.message);
+          return;
+        }
+      }
+
+      const payload = {
+        title: form.title.value.trim(),
+        type: form.type.value,
+        difficulty: form.difficulty.value,
+        category: form.category.value.trim() || undefined,
+        tags: tagsArray,
+        description: form.description.value.trim(),
+        defaultCodeSnippet: form.defaultCodeSnippet.value.trim() || undefined,
+        testCases
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+
+      try {
+        if (id) {
+          await API.questions.update(id, payload);
+        } else {
+          await API.questions.create(payload);
+        }
+        closeQuestionModal();
+        await loadQuestions();
+      } catch (err) {
+        const errEl = document.getElementById('modal-error');
+        if (errEl) {
+          errEl.textContent = err.message || 'Failed to save question.';
+          errEl.classList.remove('hidden');
+        }
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Question';
+      }
+    }
+
+    async function handleDeleteQuestion(id) {
+      if (!confirm('Are you sure you want to permanently delete this question?')) return;
+      try {
+        await API.questions.delete(id);
+        await loadQuestions();
+      } catch (e) {
+        alert(e.message);
       }
     }
   </script>

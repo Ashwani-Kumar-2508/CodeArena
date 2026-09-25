@@ -62,9 +62,29 @@ const API = {
 
   // Question Bank Endpoints
   questions: {
-    list: () => API.request('/questions', { method: 'GET' }),
+    list: (params = {}) => {
+      const cleanParams = {};
+      Object.keys(params).forEach(k => {
+        if (params[k] !== undefined && params[k] !== null && params[k] !== '' && params[k] !== 'ALL') {
+          cleanParams[k] = params[k];
+        }
+      });
+      const qs = new URLSearchParams(cleanParams).toString();
+      return API.request('/questions' + (qs ? '?' + qs : ''), { method: 'GET' });
+    },
     get: (id) => API.request(`/questions/${id}`, { method: 'GET' }),
-    create: (data) => API.request('/questions', { method: 'POST', body: data })
+    create: (data) => API.request('/questions', { method: 'POST', body: data }),
+    update: (id, data) => API.request(`/questions/${id}`, { method: 'PATCH', body: data }),
+    delete: (id) => API.request(`/questions/${id}`, { method: 'DELETE' })
+  },
+
+  // Candidate Practice Endpoints (Decoupled from live interviews)
+  practice: {
+    getDashboard: () => API.request('/practice', { method: 'GET' }),
+    add: (questionId) => API.request(`/practice/${questionId}`, { method: 'POST' }),
+    remove: (questionId) => API.request(`/practice/${questionId}`, { method: 'DELETE' }),
+    run: (questionId, payload) => API.request(`/practice/${questionId}/run`, { method: 'POST', body: payload }),
+    submit: (questionId, payload) => API.request(`/practice/${questionId}/submit`, { method: 'POST', body: payload })
   },
 
   // Code Execution Endpoints

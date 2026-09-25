@@ -10,9 +10,10 @@ class MonacoManager {
     this.currentLanguage = 'javascript';
   }
 
-  init(containerId, initialCode = '// Start coding here...\n', language = 'javascript') {
+  init(containerId, initialCode = '// Start coding here...\n', language = 'javascript', options = {}) {
     return new Promise((resolve) => {
-      this.currentLanguage = language;
+      this.currentLanguage = this.normalizeLanguage(language);
+      this.readOnly = !!options.readOnly;
       // Configure Monaco loader
       require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
@@ -46,6 +47,7 @@ class MonacoManager {
           language: this.currentLanguage,
           theme: 'codearena-dark',
           automaticLayout: true,
+          readOnly: this.readOnly,
           fontSize: 14,
           fontFamily: "'Fira Code', monospace",
           minimap: { enabled: false },
@@ -54,7 +56,8 @@ class MonacoManager {
           cursorBlinking: 'smooth',
           cursorSmoothCaretAnimation: 'on',
           renderWhitespace: 'selection',
-          padding: { top: 12, bottom: 12 }
+          padding: { top: 12, bottom: 12 },
+          ...options
         });
 
         // Keyboard Shortcut: Ctrl+Enter / Cmd+Enter to Run Code
@@ -62,9 +65,9 @@ class MonacoManager {
           if (this.onRunCallback) this.onRunCallback();
         });
 
-        // Setup Cursor Change Listener
+        // Setup Cursor Change Listener (only if not read-only)
         this.editor.onDidChangeCursorPosition((e) => {
-          if (window.realtime && window.currentInterviewId) {
+          if (!this.readOnly && window.realtime && window.currentInterviewId) {
             window.realtime.sendCursorMove(window.currentInterviewId, {
               lineNumber: e.position.lineNumber,
               column: e.position.column
@@ -75,6 +78,17 @@ class MonacoManager {
         resolve(this.editor);
       });
     });
+  }
+
+  normalizeLanguage(lang) {
+    if (!lang) return 'javascript';
+    const l = lang.toLowerCase().trim();
+    if (l.includes('python')) return 'python';
+    if (l === 'js' || l.includes('javascript')) return 'javascript';
+    if (l === 'c++' || l === 'cpp') return 'cpp';
+    if (l === 'c') return 'c';
+    if (l === 'java') return 'java';
+    return l;
   }
 
   getCode() {
@@ -92,10 +106,26 @@ class MonacoManager {
     this.isApplyingRemoteUpdate = false;
   }
 
+  setReadOnly(isReadOnly) {
+    this.readOnly = !!isReadOnly;
+    if (this.editor) {
+      this.editor.updateOptions({ readOnly: this.readOnly });
+    }
+  }
+
+  isReadOnly() {
+    return !!this.readOnly;
+  }
+
   setLanguage(lang) {
     if (!this.editor) return;
-    this.currentLanguage = lang;
-    monaco.editor.setModelLanguage(this.editor.getModel(), lang);
+    const normalized = this.normalizeLanguage(lang);
+    this.currentLanguage = normalized;
+    monaco.editor.setModelLanguage(this.editor.getModel(), normalized);
+  }
+
+  getLanguage() {
+    return this.currentLanguage;
   }
 
   setRemoteCursor(position, userName, role) {

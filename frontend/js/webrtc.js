@@ -367,6 +367,9 @@ class WebRTCManager {
       this.setLocalCameraPlaceholder(false);
       this.broadcastMediaState();
       this.updateLocalControlsUI();
+      if (window.realtime) {
+        window.realtime.sendScreenShareStatus(this.interviewId, true);
+      }
 
       // Listen for browser's native "Stop Sharing" bar
       screenTrack.onended = () => {
@@ -407,6 +410,9 @@ class WebRTCManager {
     this.setLocalCameraPlaceholder(this.isCameraOff);
     this.broadcastMediaState();
     this.updateLocalControlsUI();
+    if (window.realtime) {
+      window.realtime.sendScreenShareStatus(this.interviewId, false);
+    }
   }
 
   broadcastMediaState() {

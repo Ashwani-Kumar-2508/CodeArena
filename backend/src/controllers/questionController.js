@@ -1,14 +1,21 @@
 const questionService = require('../services/questionService');
 const { z } = require('zod');
 
-const createQuestionSchema = z.object({
-  title: z.string().min(3, 'Title is required'),
-  description: z.string().min(5, 'Description is required'),
-  type: z.enum(['CODING', 'TECHNICAL', 'BEHAVIORAL', 'MCQ', 'FOLLOW_UP']).default('CODING'),
+const questionSchema = z.object({
+  title: z.string().min(3, 'Title is required and must be at least 3 characters'),
+  description: z.string().min(5, 'Description is required and must be at least 5 characters'),
+  type: z.enum(['CODING', 'TECHNICAL', 'SYSTEM_DESIGN', 'BEHAVIORAL', 'MCQ', 'FOLLOW_UP']).default('CODING'),
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD']).default('MEDIUM'),
+  category: z.string().default('GENERAL'),
+  tags: z.array(z.string()).optional(),
+  supportedLanguages: z.array(z.string()).optional(),
+  starterCode: z.record(z.string()).optional(),
   defaultCodeSnippet: z.string().optional(),
   language: z.string().default('javascript'),
+  constraints: z.string().optional(),
+  examples: z.any().optional(),
   options: z.any().optional(),
+  correctAnswer: z.string().optional(),
   hints: z.any().optional(),
   rubric: z.any().optional(),
   testCases: z.array(z.object({
@@ -21,10 +28,10 @@ const createQuestionSchema = z.object({
 
 async function listQuestions(req, res, next) {
   try {
-    const questions = await questionService.listQuestions(req.user);
+    const result = await questionService.listQuestions(req.user, req.query);
     res.json({
       success: true,
-      data: { questions }
+      data: result
     });
   } catch (error) {
     next(error);
@@ -45,11 +52,11 @@ async function getQuestion(req, res, next) {
 
 async function createQuestion(req, res, next) {
   try {
-    const validatedData = createQuestionSchema.parse(req.body);
-    const question = await questionService.createQuestion(validatedData);
+    const validatedData = questionSchema.parse(req.body);
+    const question = await questionService.createQuestion(validatedData, req.user);
     res.status(201).json({
       success: true,
-      message: 'Question added to bank',
+      message: 'Question added to bank successfully',
       data: { question }
     });
   } catch (error) {
@@ -63,8 +70,35 @@ async function createQuestion(req, res, next) {
   }
 }
 
+async function updateQuestion(req, res, next) {
+  try {
+    const question = await questionService.updateQuestion(req.params.id, req.body, req.user);
+    res.json({
+      success: true,
+      message: 'Question updated successfully',
+      data: { question }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function deleteQuestion(req, res, next) {
+  try {
+    await questionService.deleteQuestion(req.params.id, req.user);
+    res.json({
+      success: true,
+      message: 'Question deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   listQuestions,
   getQuestion,
-  createQuestion
+  createQuestion,
+  updateQuestion,
+  deleteQuestion
 };

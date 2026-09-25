@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Practice Workspace — CodeArena</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/style.css">
+
+  <!-- Monaco Editor AMD Loader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+
+  <!-- Application Modules -->
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/editor.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Navigation Bar -->
+  <header class="h-14 border-b border-slate-800 bg-slate-950 flex items-center justify-between px-5 z-20 shrink-0">
+    <div class="flex items-center gap-3">
+      <a href="/views/dashboard.html" class="flex items-center gap-2 font-black text-lg text-white group" title="Return to Dashboard">
+        <span class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white text-xs shadow-lg shadow-indigo-600/30 group-hover:bg-indigo-500 transition">⚔</span>
+        <span class="hidden sm:inline">Code<span class="text-indigo-400">Arena</span></span>
+      </a>
+      <span class="text-slate-700">/</span>
+      <a href="/views/problems.html" class="text-xs text-slate-400 hover:text-slate-200 transition">Question Catalog</a>
+      <span class="text-slate-700">/</span>
+      <h1 id="practice-problem-title" class="text-sm font-bold text-slate-200 truncate max-w-xs md:max-w-md">Practice Mode</h1>
+      <span id="practice-status-badge" class="px-2 py-0.5 text-xs font-mono font-semibold rounded bg-slate-800 text-slate-400">UNSOLVED</span>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button id="toggle-practice-list-btn" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-medium transition flex items-center gap-1.5">
+        <span>📚</span>
+        <span class="hidden sm:inline">My Practice List</span>
+      </button>
+
+      <div class="flex items-center gap-2">
+        <span id="user-display-name" class="text-xs font-semibold text-slate-300"></span>
+        <span id="user-role-badge"></span>
+      </div>
+
+      <a href="/views/dashboard.html" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white text-xs font-medium transition">
+        Exit
+      </a>
+    </div>
+  </header>
+
+  <!-- Workspace Container -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- Left Panel: Problem Statement & Constraints -->
+    <div class="w-80 lg:w-[420px] border-r border-slate-800 bg-slate-900/40 flex flex-col shrink-0">
+      <div class="flex-1 p-5 overflow-y-auto space-y-4">
+        <div>
+          <div class="flex items-center gap-2 mb-2.5">
+            <span id="q-badge-type" class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800">CODING</span>
+            <span id="q-badge-diff" class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-800">EASY</span>
+            <span id="q-badge-category" class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">Algorithms</span>
+          </div>
+          <h2 id="q-title" class="text-lg font-bold text-white mb-2">Loading problem...</h2>
+          <div id="q-description" class="text-xs text-slate-300 leading-relaxed space-y-2"></div>
+        </div>
+
+        <!-- Examples Section -->
+        <div id="q-examples-wrapper" class="hidden pt-3 border-t border-slate-800/80 space-y-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Examples</h3>
+          <div id="q-examples-list" class="space-y-2 font-mono text-xs"></div>
+        </div>
+
+        <!-- Constraints Section -->
+        <div id="q-constraints-wrapper" class="hidden pt-3 border-t border-slate-800/80 space-y-1.5">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Constraints</h3>
+          <ul id="q-constraints-list" class="list-disc pl-4 text-xs text-slate-300 font-mono space-y-1"></ul>
+        </div>
+
+        <!-- Solo Practice Bookmarking -->
+        <div class="pt-4 border-t border-slate-800 flex items-center justify-between">
+          <button id="toggle-bookmark-btn" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+            <span>🔖</span>
+            <span id="bookmark-btn-text">Bookmark Problem</span>
+          </button>
+          <a href="/views/problems.html" class="text-xs text-indigo-400 hover:underline">Browse Catalog &rarr;</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center/Right Panel: Monaco Editor + Execution Output -->
+    <div class="flex-1 flex flex-col min-w-0 bg-slate-950">
+      <!-- Editor Toolbar -->
+      <div class="h-11 border-b border-slate-800 bg-slate-950/80 px-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <!-- Language Selector -->
+          <div class="flex items-center gap-1.5">
+            <label for="practice-lang-select" class="text-[11px] text-slate-400 font-medium">Language:</label>
+            <select id="practice-lang-select" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1 font-mono focus:outline-none focus:border-indigo-500">
+              <option value="javascript">JavaScript (Node.js)</option>
+              <option value="python">Python 3</option>
+              <option value="java">Java 22</option>
+              <option value="cpp">C++</option>
+              <option value="c">C</option>
+            </select>
+          </div>
+
+          <span class="text-[11px] text-slate-500 font-mono hidden md:inline">Ctrl + Enter to run</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="practice-run-btn" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5">
+            <span>▶</span> Run Tests
+          </button>
+          <button id="practice-submit-btn" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-indigo-600/20 transition flex items-center gap-1.5">
+            <span>✔</span> Submit Solution
+          </button>
+        </div>
+      </div>
+
+      <!-- Monaco Editor Container -->
+      <div class="flex-1 relative">
+        <div id="practice-editor-container" class="w-full h-full"></div>
+      </div>
+
+      <!-- Bottom Panel: Test Case Results & Sandbox Console (Height: 220px) -->
+      <div class="h-56 border-t border-slate-800 bg-slate-900/60 flex flex-col shrink-0">
+        <div class="h-9 px-4 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-bold text-slate-300">Sandbox Test Results</span>
+            <span id="practice-summary-badge" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">0/0 Passed</span>
+          </div>
+          <span class="text-[10px] text-slate-500 font-mono">Isolated Runner</span>
+        </div>
+
+        <div id="practice-results-container" class="flex-1 p-3 overflow-y-auto font-mono text-xs">
+          <div class="text-xs text-slate-500 italic p-2">Click "Run Tests" to execute your code against visible problem test cases.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide-out Drawer: Practice List / History -->
+    <div id="practice-drawer" class="absolute top-0 right-0 h-full w-80 bg-slate-900 border-l border-slate-800 shadow-2xl z-30 transform translate-x-full transition-transform duration-300 flex flex-col">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="font-bold text-sm text-white flex items-center gap-2">
+          <span>📚</span> My Bookmarked Practice
+        </h3>
+        <button id="close-practice-drawer-btn" class="text-slate-400 hover:text-white font-bold">&times;</button>
+      </div>
+
+      <div id="drawer-practice-list" class="flex-1 p-3 overflow-y-auto space-y-2">
+        <div class="text-xs text-slate-500 p-2">Loading practice list...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let activeQuestion = null;
+    let currentUser = null;
+    let isBookmarked = false;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      currentUser = await Auth.requireAuth();
+      if (!currentUser) return;
+
+      const urlParams = new URLSearchParams(window.location.search);
+      let questionId = urlParams.get('id');
+
+      setupDrawer();
+      await loadPracticeDashboard();
+
+      if (!questionId) {
+        // Fallback to first available question
+        try {
+          const res = await API.questions.list({ limit: 1 });
+          if (res.data.questions && res.data.questions.length > 0) {
+            questionId = res.data.questions[0].id;
+          }
+        } catch (e) {}
+      }
+
+      if (questionId) {
+        await loadQuestion(questionId);
+      }
+
+      document.getElementById('practice-run-btn')?.addEventListener('click', handleRun);
+      document.getElementById('practice-submit-btn')?.addEventListener('click', handleSubmit);
+      document.getElementById('toggle-bookmark-btn')?.addEventListener('click', handleToggleBookmark);
+    });
+
+    async function loadQuestion(id) {
+      try {
+        const res = await API.questions.get(id);
+        activeQuestion = res.data.question;
+
+        // Render Question Information
+        document.getElementById('practice-problem-title').textContent = activeQuestion.title;
+        document.getElementById('q-title').textContent = activeQuestion.title;
+        document.getElementById('q-badge-type').textContent = activeQuestion.type;
+        document.getElementById('q-badge-diff').textContent = activeQuestion.difficulty;
+        document.getElementById('q-badge-diff').className = `px-2 py-0.5 rounded text-[10px] font-mono ${
+          activeQuestion.difficulty === 'EASY' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+          activeQuestion.difficulty === 'MEDIUM' ? 'bg-amber-950 text-amber-400 border border-amber-800' :
+          'bg-rose-950 text-rose-400 border border-rose-800'
+        }`;
+        document.getElementById('q-badge-category').textContent = activeQuestion.category || 'General';
+        document.getElementById('q-description').innerHTML = formatMarkdown(activeQuestion.description);
+
+        // Examples
+        const examplesWrapper = document.getElementById('q-examples-wrapper');
+        const examplesList = document.getElementById('q-examples-list');
+        if (activeQuestion.examples && activeQuestion.examples.length > 0) {
+          examplesWrapper.classList.remove('hidden');
+          examplesList.innerHTML = activeQuestion.examples.map((ex, idx) => `
+            <div class="p-2.5 rounded bg-slate-950 border border-slate-800 space-y-1">
+              <div class="text-[10px] text-indigo-400 font-bold uppercase">Example ${idx + 1}</div>
+              <div>Input: <span class="text-slate-200">${ex.input}</span></div>
+              <div>Output: <span class="text-emerald-400">${ex.output}</span></div>
+              ${ex.explanation ? `<div class="text-[11px] text-slate-400 font-sans italic mt-1">${ex.explanation}</div>` : ''}
+            </div>
+          `).join('');
+        } else {
+          examplesWrapper.classList.add('hidden');
+        }
+
+        // Constraints
+        const constraintsWrapper = document.getElementById('q-constraints-wrapper');
+        const constraintsList = document.getElementById('q-constraints-list');
+        if (activeQuestion.constraints && activeQuestion.constraints.length > 0) {
+          constraintsWrapper.classList.remove('hidden');
+          constraintsList.innerHTML = activeQuestion.constraints.map(c => `<li>${c}</li>`).join('');
+        } else {
+          constraintsWrapper.classList.add('hidden');
+        }
+
+        // Determine Starter Code for default/selected language
+        const langSelect = document.getElementById('practice-lang-select');
+        const initialLang = langSelect ? langSelect.value : (activeQuestion.language || 'javascript');
+        let starter = '';
+        if (activeQuestion.starterCode && typeof activeQuestion.starterCode === 'object' && activeQuestion.starterCode[initialLang]) {
+          starter = activeQuestion.starterCode[initialLang];
+        } else if (activeQuestion.defaultCodeSnippet) {
+          starter = activeQuestion.defaultCodeSnippet;
+        } else {
+          starter = '// Write your solution here\n';
+        }
+
+        // Init Monaco Editor
+        await codeEditor.init('practice-editor-container', starter, initialLang, { readOnly: false });
+
+        // Bind language select
+        langSelect?.addEventListener('change', () => {
+          const newLang = langSelect.value;
+          codeEditor.setLanguage(newLang);
+          let newStarter = '';
+          if (activeQuestion.starterCode && typeof activeQuestion.starterCode === 'object' && activeQuestion.starterCode[newLang]) {
+            newStarter = activeQuestion.starterCode[newLang];
+          }
+          const cur = codeEditor.getCode().trim();
+          if (!cur || cur.startsWith('//') || cur.startsWith('/*') || cur.startsWith('#') || cur.includes('class Solution')) {
+            if (newStarter) codeEditor.setCode(newStarter);
+          }
+        });
+
+      } catch (err) {
+        document.getElementById('q-title').textContent = 'Error loading problem';
+        document.getElementById('q-description').textContent = err.message;
+      }
+    }
+
+    async function handleRun() {
+      if (!activeQuestion) return;
+      const runBtn = document.getElementById('practice-run-btn');
+      runBtn.disabled = true;
+      runBtn.innerHTML = `<span class="animate-spin inline-block mr-1">↻</span> Running...`;
+
+      const resultsPanel = document.getElementById('practice-results-container');
+      resultsPanel.innerHTML = '<div class="text-xs text-slate-400 p-3">Executing code in sandbox VM...</div>';
+
+      try {
+        const code = codeEditor.getCode();
+        const language = codeEditor.getLanguage();
+        const res = await API.practice.run(activeQuestion.id, { code, language });
+        renderResults(res.data);
+      } catch (e) {
+        resultsPanel.innerHTML = `<div class="p-3 text-xs text-rose-400 bg-rose-950/30 border border-rose-800 rounded">Run error: ${e.message}</div>`;
+      } finally {
+        runBtn.disabled = false;
+        runBtn.innerHTML = `<span>▶</span> Run Tests`;
+      }
+    }
+
+    async function handleSubmit() {
+      if (!activeQuestion) return;
+      const submitBtn = document.getElementById('practice-submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `<span class="animate-spin inline-block mr-1">↻</span> Evaluating...`;
+
+      const resultsPanel = document.getElementById('practice-results-container');
+      resultsPanel.innerHTML = '<div class="text-xs text-slate-400 p-3">Validating against all test cases...</div>';
+
+      try {
+        const code = codeEditor.getCode();
+        const language = codeEditor.getLanguage();
+        const res = await API.practice.submit(activeQuestion.id, { code, language });
+        renderResults(res.data, true);
+
+        if (res.data.status === 'SOLVED') {
+          const badge = document.getElementById('practice-status-badge');
+          if (badge) {
+            badge.textContent = 'SOLVED';
+            badge.className = 'px-2 py-0.5 text-xs font-mono font-bold rounded bg-emerald-950 text-emerald-400 border border-emerald-800';
+          }
+          await loadPracticeDashboard();
+        }
+      } catch (e) {
+        resultsPanel.innerHTML = `<div class="p-3 text-xs text-rose-400 bg-rose-950/30 border border-rose-800 rounded">Submission error: ${e.message}</div>`;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span>✔</span> Submit Solution`;
+      }
+    }
+
+    function renderResults(data, isSubmission = false) {
+      const container = document.getElementById('practice-results-container');
+      const summary = document.getElementById('practice-summary-badge');
+      if (summary) {
+        summary.textContent = `${data.passedCount}/${data.totalCount} Passed`;
+        summary.className = `text-xs px-2 py-0.5 rounded font-mono font-semibold ${
+          data.passedCount === data.totalCount && data.totalCount > 0 ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-rose-950 text-rose-400 border border-rose-800'
+        }`;
+      }
+
+      const results = data.results || [];
+      if (results.length === 0) {
+        container.innerHTML = `<div class="p-3 text-xs text-slate-400">No test cases executed.</div>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="space-y-2">
+          ${results.map((t, idx) => `
+            <div class="p-2.5 rounded border ${t.passed ? 'bg-emerald-950/20 border-emerald-900/60' : 'bg-rose-950/20 border-rose-900/60'}">
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="font-medium text-slate-300 flex items-center gap-1.5">
+                  ${t.passed ? '✅' : '❌'} Test Case ${idx + 1} ${t.isHidden ? '<span class="text-[10px] text-amber-400 font-mono">[Hidden Verification Test]</span>' : ''}
+                </span>
+                <span class="font-mono text-[11px] text-slate-500">${t.executionTimeMs}ms</span>
+              </div>
+              ${t.error ? `<div class="text-xs font-mono text-rose-400 mt-1">${t.error}</div>` : ''}
+              ${!t.isHidden ? `
+                <div class="grid grid-cols-2 gap-2 text-[11px] font-mono mt-1 text-slate-400">
+                  <div>Input: <span class="text-slate-200">${t.input}</span></div>
+                  <div>Expected: <span class="text-slate-200">${t.expectedOutput}</span></div>
+                  <div>Actual: <span class="${t.passed ? 'text-emerald-400' : 'text-rose-400'}">${t.actualOutput}</span></div>
+                </div>
+              ` : `
+                <div class="text-[11px] text-slate-500 italic mt-1">Hidden test verification.</div>
+              `}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    async function loadPracticeDashboard() {
+      try {
+        const res = await API.practice.getDashboard();
+        const bookmarks = res.data.practiceList || [];
+        const drawerList = document.getElementById('drawer-practice-list');
+
+        if (activeQuestion) {
+          const match = bookmarks.find(b => b.questionId === activeQuestion.id);
+          isBookmarked = !!match;
+          updateBookmarkButtonUI(isBookmarked);
+          if (match) {
+            const badge = document.getElementById('practice-status-badge');
+            if (badge) {
+              badge.textContent = match.status;
+              badge.className = `px-2 py-0.5 text-xs font-mono font-bold rounded ${
+                match.status === 'SOLVED' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                match.status === 'ATTEMPTED' ? 'bg-amber-950 text-amber-400 border border-amber-800' :
+                'bg-slate-800 text-slate-400 border border-slate-700'
+              }`;
+            }
+          }
+        }
+
+        if (drawerList) {
+          if (bookmarks.length === 0) {
+            drawerList.innerHTML = '<div class="text-xs text-slate-500 p-3">No saved problems yet. Bookmark questions to practice!</div>';
+          } else {
+            drawerList.innerHTML = bookmarks.map(b => `
+              <a href="/views/practice.html?id=${b.question.id}" class="block p-2.5 rounded-xl border border-slate-800 bg-slate-950/80 hover:border-indigo-500/50 transition">
+                <div class="flex items-center justify-between text-xs mb-1">
+                  <span class="font-bold text-slate-200 truncate max-w-[170px]">${b.question.title}</span>
+                  <span class="text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                    b.status === 'SOLVED' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' :
+                    b.status === 'ATTEMPTED' ? 'bg-amber-950 text-amber-400 border border-amber-800' :
+                    'bg-slate-800 text-slate-400'
+                  }">${b.status}</span>
+                </div>
+                <div class="text-[10px] text-slate-500 flex items-center justify-between">
+                  <span>${b.question.type}</span>
+                  <span>${b.question.difficulty}</span>
+                </div>
+              </a>
+            `).join('');
+          }
+        }
+      } catch (e) {
+        console.warn('Practice dashboard load error:', e);
+      }
+    }
+
+    async function handleToggleBookmark() {
+      if (!activeQuestion) return;
+      try {
+        if (isBookmarked) {
+          await API.practice.remove(activeQuestion.id);
+          isBookmarked = false;
+        } else {
+          await API.practice.add(activeQuestion.id);
+          isBookmarked = true;
+        }
+        updateBookmarkButtonUI(isBookmarked);
+        await loadPracticeDashboard();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    function updateBookmarkButtonUI(bookmarked) {
+      const btnText = document.getElementById('bookmark-btn-text');
+      const btn = document.getElementById('toggle-bookmark-btn');
+      if (btnText && btn) {
+        if (bookmarked) {
+          btnText.textContent = 'Bookmarked (Saved)';
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-950/80 text-indigo-300 border border-indigo-800 transition flex items-center gap-1.5';
+        } else {
+          btnText.textContent = 'Bookmark Problem';
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5';
+        }
+      }
+    }
+
+    function setupDrawer() {
+      const drawer = document.getElementById('practice-drawer');
+      const toggleBtn = document.getElementById('toggle-practice-list-btn');
+      const closeBtn = document.getElementById('close-practice-drawer-btn');
+
+      toggleBtn?.addEventListener('click', () => drawer?.classList.toggle('translate-x-full'));
+      closeBtn?.addEventListener('click', () => drawer?.classList.add('translate-x-full'));
+    }
+
+    function formatMarkdown(text) {
+      if (!text) return '';
+      return text
+        .replace(/^### (.*$)/gim, '<h3 class="text-sm font-bold text-slate-200 mt-3 mb-1">$1</h3>')
+        .replace(/^#### (.*$)/gim, '<h4 class="text-xs font-semibold text-slate-300 mt-2 mb-1">$1</h4>')
+        .replace(/```javascript([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-emerald-400 overflow-x-auto my-2">$1</pre>')
+        .replace(/```python([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-blue-400 overflow-x-auto my-2">$1</pre>')
+        .replace(/```java([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-amber-400 overflow-x-auto my-2">$1</pre>')
+        .replace(/```([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-slate-300 overflow-x-auto my-2">$1</pre>')
+        .replace(/`([^`]+)`/gim, '<code class="bg-slate-800 px-1.5 py-0.5 rounded text-indigo-300 font-mono text-[11px]">$1</code>')
+        .replace(/\n/gim, '<br/>');
+    }
+  </script>
+</body>
+</html>

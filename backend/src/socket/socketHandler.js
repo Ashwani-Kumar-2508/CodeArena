@@ -4,8 +4,31 @@ const cookie = require('cookie');
 
 // In-memory room state: room -> Map of socketId -> participant
 const roomParticipants = new Map();
-// In-memory room code buffers for fast sync
+// In-memory room code buffers: room -> Map<questionId, { code: string, language: string, updatedAt: number }>
 const roomCodeState = new Map();
+
+function getRoomQuestionState(interviewId, questionId = 'default') {
+  if (!roomCodeState.has(interviewId)) {
+    roomCodeState.set(interviewId, new Map());
+  }
+  const qMap = roomCodeState.get(interviewId);
+  return qMap.get(questionId) || null;
+}
+
+function setRoomQuestionState(interviewId, questionId = 'default', code, language) {
+  if (!roomCodeState.has(interviewId)) {
+    roomCodeState.set(interviewId, new Map());
+  }
+  const qMap = roomCodeState.get(interviewId);
+  const existing = qMap.get(questionId) || {};
+  const updated = {
+    code: code !== undefined ? code : existing.code || '',
+    language: language || existing.language || 'javascript',
+    updatedAt: Date.now()
+  };
+  qMap.set(questionId, updated);
+  return updated;
+}
 
 function initSocket(io) {
   // Socket authentication middleware
@@ -106,12 +129,24 @@ function initSocket(io) {
           durationMinutes: interview.durationMinutes
         });
 
-        // Send initial code state if exists
+        // Send all cached per-question code states if exists
         if (roomCodeState.has(interviewId)) {
-          socket.emit('code_sync', {
-            code: roomCodeState.get(interviewId),
-            origin: 'server_init'
-          });
+          const qMap = roomCodeState.get(interviewId);
+          const cachedMap = {};
+          for (const [qid, state] of qMap.entries()) {
+            cachedMap[qid] = state;
+          }
+          socket.emit('code_sync_all', { cachedQuestions: cachedMap });
+
+          // Also emit legacy single code_sync for first/default question
+          const defaultState = qMap.get('default') || Array.from(qMap.values())[0];
+          if (defaultState) {
+            socket.emit('code_sync', {
+              code: defaultState.code,
+              language: defaultState.language,
+              origin: 'server_init'
+            });
+          }
         }
 
         // Log USER_JOINED event
@@ -131,17 +166,44 @@ function initSocket(io) {
       }
     });
 
-    // Real-Time Code Sync (Text & Deltas)
-    socket.on('code_change', async ({ interviewId, code, delta }) => {
+    // Real-Time Code Sync: Strictly Candidate only!
+    socket.on('code_change', async ({ interviewId, questionId = 'default', code, language, delta }) => {
       if (!interviewId || !socket.interviewId || socket.interviewId !== interviewId) return;
-      roomCodeState.set(interviewId, code);
+
+      // Strict role check: Observer/Interviewer cannot modify candidate code
+      if (user.role !== 'CANDIDATE') {
+        socket.emit('permission_denied', { message: 'Interviewer is in Observer Mode. Only the candidate can write code.' });
+        return;
+      }
+
+      setRoomQuestionState(interviewId, questionId, code, language);
 
       // Broadcast to other participants in the room
       socket.to(interviewId).emit('code_update', {
+        questionId,
         code,
+        language,
         delta,
         userId: user.id,
         senderSocketId: socket.id
+      });
+    });
+
+    // Real-Time Language Change: Candidate only
+    socket.on('language_change', async ({ interviewId, questionId = 'default', language }) => {
+      if (!interviewId || !socket.interviewId || socket.interviewId !== interviewId) return;
+
+      if (user.role !== 'CANDIDATE') {
+        socket.emit('permission_denied', { message: 'Only candidate can change editor language' });
+        return;
+      }
+
+      setRoomQuestionState(interviewId, questionId, undefined, language);
+
+      io.to(interviewId).emit('language_updated', {
+        questionId,
+        language,
+        userId: user.id
       });
     });
 
@@ -153,6 +215,18 @@ function initSocket(io) {
         userName: user.name,
         userRole: user.role,
         position
+      });
+    });
+
+    // Screen Share Notification
+    socket.on('screen_share_status', ({ interviewId, isSharing }) => {
+      if (!interviewId || socket.interviewId !== interviewId) return;
+      io.to(interviewId).emit('screen_share_updated', {
+        socketId: socket.id,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        isSharing: !!isSharing
       });
     });
 
@@ -229,7 +303,13 @@ function initSocket(io) {
         console.error('Error logging question change event:', e);
       }
 
-      io.to(interviewId).emit('question_switched', { questionId, order });
+      const existingState = getRoomQuestionState(interviewId, questionId);
+      io.to(interviewId).emit('question_switched', {
+        questionId,
+        order,
+        savedCode: existingState ? existingState.code : null,
+        savedLanguage: existingState ? existingState.language : null
+      });
     });
 
     // Real-Time In-Room Chat

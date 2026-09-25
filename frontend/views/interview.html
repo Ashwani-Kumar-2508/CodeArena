@@ -234,13 +234,36 @@
 
     <!-- Center Panel: Collaborative Monaco Editor + Test Results (Flex-1) -->
     <div class="flex-1 flex flex-col min-w-0 bg-slate-950">
+      <!-- Screen Share Notification Banner -->
+      <div id="screenshare-active-banner" class="hidden px-4 py-2 bg-indigo-950/80 border-b border-indigo-800 text-indigo-200 text-xs font-medium flex items-center justify-between animate-fade-in">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+          <span id="screenshare-banner-text">🖥 Screen is currently being shared</span>
+        </div>
+        <span class="text-[10px] text-indigo-300 font-mono bg-indigo-900/60 px-2 py-0.5 rounded border border-indigo-700">Live Screen Stream</span>
+      </div>
+
       <!-- Editor Toolbar -->
       <div class="h-11 border-b border-slate-800 bg-slate-950/80 px-4 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
-          <span class="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+          <!-- Role Permission Mode Badge -->
+          <span id="editor-mode-badge" class="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-900 border border-slate-800 text-slate-300 flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            solution.js
+            Active Coder
           </span>
+
+          <!-- Language Selector -->
+          <div class="flex items-center gap-1.5">
+            <label for="editor-language-select" class="text-[11px] text-slate-400 font-medium">Lang:</label>
+            <select id="editor-language-select" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1 font-mono focus:outline-none focus:border-indigo-500">
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python 3</option>
+              <option value="java">Java 22</option>
+              <option value="cpp">C++</option>
+              <option value="c">C</option>
+            </select>
+          </div>
+
           <span class="text-[11px] text-slate-500 font-mono hidden md:inline">Ctrl + Enter to run</span>
         </div>
 

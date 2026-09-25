@@ -5,6 +5,7 @@ let interviewData = null;
 let activeQuestionIndex = 0;
 let timerInterval = null;
 let serverClockOffset = 0; // Difference between server timestamp and client local clock
+const questionCodeCache = new Map(); // questionId -> { code: string, language: string }
 
 document.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
@@ -32,6 +33,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Authenticate user
   const user = await Auth.requireAuth();
   if (!user) return;
+  window.currentUser = user;
+
+  const isObserver = user.role === 'INTERVIEWER' || user.role === 'ADMIN';
 
   // 2. Fetch interview data and verify authorization
   try {
@@ -40,6 +44,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderRoomHeader(interviewData, user);
     setupRolePermissions(interviewData, user);
+    setupEditorRoleMode(isObserver);
+    setupLanguageSelector(interviewId, isObserver);
     setupQuestionsNavigation();
     setupChat();
     setupEvaluationDrawer(user);
@@ -50,12 +56,37 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 4. Initialize Monaco Editor with starter code of first question
     const initialQuestion = getActiveQuestion();
-    const starterCode = initialQuestion ? (initialQuestion.defaultCodeSnippet || '// Start coding your solution here...\n') : '';
-    await codeEditor.init('monaco-editor-container', starterCode, initialQuestion?.language || 'javascript');
+    const initialLang = initialQuestion?.language || 'javascript';
+    let starterCode = '';
 
-    // 5. Bind local editor changes to real-time sync
+    if (initialQuestion) {
+      if (initialQuestion.starterCode && typeof initialQuestion.starterCode === 'object' && initialQuestion.starterCode[initialLang]) {
+        starterCode = initialQuestion.starterCode[initialLang];
+      } else if (initialQuestion.defaultCodeSnippet) {
+        starterCode = initialQuestion.defaultCodeSnippet;
+      } else {
+        starterCode = '// Start coding your solution here...\n';
+      }
+      questionCodeCache.set(initialQuestion.id, { code: starterCode, language: initialLang });
+    }
+
+    await codeEditor.init('monaco-editor-container', starterCode, initialLang, {
+      readOnly: isObserver
+    });
+
+    // Sync language select dropdown
+    const langSelect = document.getElementById('editor-language-select');
+    if (langSelect) langSelect.value = initialLang;
+
+    // 5. Bind local editor changes to real-time sync (CANDIDATE only)
     codeEditor.onContentChange((code, changes) => {
-      realtime.sendCodeChange(interviewId, code, changes);
+      if (user.role === 'CANDIDATE') {
+        const q = getActiveQuestion();
+        const qid = q ? q.id : 'default';
+        const lang = codeEditor.getLanguage();
+        questionCodeCache.set(qid, { code, language: lang });
+        realtime.sendCodeChange(interviewId, qid, code, lang, changes);
+      }
     });
 
     // 6. Bind Run Code and Submit handlers
@@ -82,6 +113,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.onRoomSecurityError(err.message || 'You do not have permission to access this interview room.');
   }
 });
+
+function setupEditorRoleMode(isObserver) {
+  const modeBadge = document.getElementById('editor-mode-badge');
+  if (modeBadge) {
+    if (isObserver) {
+      modeBadge.className = 'px-2.5 py-1 rounded-md text-xs font-semibold bg-purple-950/80 border border-purple-800 text-purple-300 flex items-center gap-1.5';
+      modeBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-purple-400"></span> Observer Mode (Candidate Coding)';
+    } else {
+      modeBadge.className = 'px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-950/80 border border-emerald-800 text-emerald-300 flex items-center gap-1.5';
+      modeBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Active Coder (Full Access)';
+    }
+  }
+
+  // Interviewer in observer mode cannot submit solutions
+  const submitBtn = document.getElementById('submit-code-btn');
+  if (submitBtn && isObserver) {
+    submitBtn.classList.add('hidden');
+  }
+}
+
+function setupLanguageSelector(interviewId, isObserver) {
+  const langSelect = document.getElementById('editor-language-select');
+  if (!langSelect) return;
+
+  if (isObserver) {
+    langSelect.disabled = true;
+    langSelect.title = 'Candidate controls active programming language';
+  } else {
+    langSelect.addEventListener('change', () => {
+      const newLang = langSelect.value;
+      codeEditor.setLanguage(newLang);
+      const q = getActiveQuestion();
+      if (q) {
+        let starter = '';
+        if (q.starterCode && typeof q.starterCode === 'object' && q.starterCode[newLang]) {
+          starter = q.starterCode[newLang];
+        } else if (q.defaultCodeSnippet) {
+          starter = q.defaultCodeSnippet;
+        }
+
+        const curCode = codeEditor.getCode().trim();
+        // Replace starter template if editor is empty or at default
+        if (!curCode || curCode.startsWith('//') || curCode.startsWith('/*') || curCode.startsWith('#') || curCode.includes('class Solution')) {
+          if (starter) codeEditor.setCode(starter);
+        }
+
+        questionCodeCache.set(q.id, { code: codeEditor.getCode(), language: newLang });
+        realtime.sendLanguageChange(interviewId, q.id, newLang);
+        realtime.sendCodeChange(interviewId, q.id, codeEditor.getCode(), newLang, []);
+      }
+    });
+  }
+}
 
 function getActiveQuestion() {
   if (!interviewData || !interviewData.questions || interviewData.questions.length === 0) return null;
@@ -198,13 +282,72 @@ function initRealtime(interviewId, user) {
     `).join('');
   });
 
-  // Remote code updates
-  socket.on('code_update', ({ code }) => {
-    codeEditor.setCode(code);
+  // Remote code updates (Buffered per question)
+  socket.on('code_sync_all', ({ cachedQuestions }) => {
+    if (cachedQuestions) {
+      for (const [qid, state] of Object.entries(cachedQuestions)) {
+        questionCodeCache.set(qid, state);
+      }
+      const q = getActiveQuestion();
+      if (q && questionCodeCache.has(q.id)) {
+        const state = questionCodeCache.get(q.id);
+        if (state.code !== undefined) codeEditor.setCode(state.code);
+        if (state.language) {
+          codeEditor.setLanguage(state.language);
+          const langSelect = document.getElementById('editor-language-select');
+          if (langSelect) langSelect.value = state.language;
+        }
+      }
+    }
   });
 
-  socket.on('code_sync', ({ code }) => {
+  socket.on('code_update', ({ questionId, code, language }) => {
+    questionCodeCache.set(questionId || 'default', { code, language });
+    const q = getActiveQuestion();
+    if (!q || q.id === questionId || questionId === 'default') {
+      codeEditor.setCode(code);
+      if (language && language !== codeEditor.getLanguage()) {
+        codeEditor.setLanguage(language);
+        const langSelect = document.getElementById('editor-language-select');
+        if (langSelect) langSelect.value = language;
+      }
+    }
+  });
+
+  socket.on('code_sync', ({ code, language }) => {
     if (code) codeEditor.setCode(code);
+    if (language) {
+      codeEditor.setLanguage(language);
+      const langSelect = document.getElementById('editor-language-select');
+      if (langSelect) langSelect.value = language;
+    }
+  });
+
+  // Language updated remotely by candidate
+  socket.on('language_updated', ({ questionId, language }) => {
+    const cached = questionCodeCache.get(questionId) || {};
+    cached.language = language;
+    questionCodeCache.set(questionId, cached);
+    const q = getActiveQuestion();
+    if (!q || q.id === questionId) {
+      codeEditor.setLanguage(language);
+      const langSelect = document.getElementById('editor-language-select');
+      if (langSelect) langSelect.value = language;
+    }
+  });
+
+  // Screen share status across the room
+  socket.on('screen_share_updated', ({ userName, userRole, isSharing }) => {
+    const banner = document.getElementById('screenshare-active-banner');
+    const bannerText = document.getElementById('screenshare-banner-text');
+    if (banner) {
+      if (isSharing) {
+        if (bannerText) bannerText.textContent = `🖥 ${userName} (${userRole}) is currently sharing their screen`;
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
   });
 
   // Remote cursor
@@ -241,7 +384,10 @@ function initRealtime(interviewId, user) {
   });
 
   // Question switched by interviewer
-  socket.on('question_switched', ({ questionId, order }) => {
+  socket.on('question_switched', ({ questionId, order, savedCode, savedLanguage }) => {
+    if (savedCode) {
+      questionCodeCache.set(questionId, { code: savedCode, language: savedLanguage });
+    }
     const targetIdx = interviewData.questions.findIndex(iq => iq.question.id === questionId);
     if (targetIdx !== -1) {
       activeQuestionIndex = targetIdx;
@@ -323,13 +469,22 @@ function setupQuestionsNavigation() {
 
   tabsContainer.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => {
+      // Save current question's code before switching
+      const curQ = getActiveQuestion();
+      if (curQ) {
+        questionCodeCache.set(curQ.id, {
+          code: codeEditor.getCode(),
+          language: codeEditor.getLanguage()
+        });
+      }
+
       const idx = Number(btn.getAttribute('data-index'));
       activeQuestionIndex = idx;
       renderActiveQuestion();
       setupQuestionsNavigation();
 
       // If interviewer, synchronize question view across room
-      if (window.currentUser.role === 'INTERVIEWER' || window.currentUser.role === 'ADMIN') {
+      if (window.currentUser && (window.currentUser.role === 'INTERVIEWER' || window.currentUser.role === 'ADMIN')) {
         const q = getActiveQuestion();
         if (q) realtime.switchQuestion(interviewData.id, q.id, idx + 1);
       }
@@ -348,12 +503,33 @@ function renderActiveQuestion() {
   document.getElementById('question-badge-diff').textContent = q.difficulty;
   document.getElementById('question-description').innerHTML = formatMarkdown(q.description);
 
-  // Set editor starter snippet if editor is empty or at default
-  const currentCode = codeEditor.getCode().trim();
-  if (!currentCode || currentCode.startsWith('// Start coding') || currentCode.startsWith('/**')) {
-    if (q.defaultCodeSnippet) {
-      codeEditor.setCode(q.defaultCodeSnippet);
+  // Check if we have cached code for this problem
+  if (questionCodeCache.has(q.id)) {
+    const cached = questionCodeCache.get(q.id);
+    if (cached.code !== undefined) {
+      codeEditor.setCode(cached.code);
     }
+    if (cached.language) {
+      codeEditor.setLanguage(cached.language);
+      const langSelect = document.getElementById('editor-language-select');
+      if (langSelect) langSelect.value = cached.language;
+    }
+  } else {
+    // Determine language and starter code
+    const langSelect = document.getElementById('editor-language-select');
+    const selectedLang = langSelect ? langSelect.value : (q.language || 'javascript');
+    let starter = '';
+    if (q.starterCode && typeof q.starterCode === 'object' && q.starterCode[selectedLang]) {
+      starter = q.starterCode[selectedLang];
+    } else if (q.defaultCodeSnippet) {
+      starter = q.defaultCodeSnippet;
+    } else {
+      starter = '// Write your solution here\n';
+    }
+    codeEditor.setCode(starter);
+    codeEditor.setLanguage(selectedLang);
+    if (langSelect) langSelect.value = selectedLang;
+    questionCodeCache.set(q.id, { code: starter, language: selectedLang });
   }
 }
 
@@ -363,6 +539,8 @@ function formatMarkdown(text) {
     .replace(/^### (.*$)/gim, '<h3 class="text-sm font-bold text-slate-200 mt-3 mb-1">$1</h3>')
     .replace(/^#### (.*$)/gim, '<h4 class="text-xs font-semibold text-slate-300 mt-2 mb-1">$1</h4>')
     .replace(/```javascript([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-emerald-400 overflow-x-auto my-2">$1</pre>')
+    .replace(/```python([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-blue-400 overflow-x-auto my-2">$1</pre>')
+    .replace(/```java([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-amber-400 overflow-x-auto my-2">$1</pre>')
     .replace(/```([\s\S]*?)```/gim, '<pre class="bg-slate-900 border border-slate-800 rounded p-2.5 text-xs font-mono text-slate-300 overflow-x-auto my-2">$1</pre>')
     .replace(/`([^`]+)`/gim, '<code class="bg-slate-800 px-1.5 py-0.5 rounded text-indigo-300 font-mono text-[11px]">$1</code>')
     .replace(/\n/gim, '<br/>');
@@ -383,11 +561,12 @@ async function handleRunCode() {
 
   try {
     const code = codeEditor.getCode();
+    const language = codeEditor.getLanguage() || q.language || 'javascript';
     const res = await API.code.run({
       interviewId: interviewData.id,
       questionId: q.id,
       code,
-      language: q.language || 'javascript'
+      language
     });
 
     renderTestResults(res.data);
@@ -418,11 +597,12 @@ async function handleSubmitCode() {
 
   try {
     const code = codeEditor.getCode();
+    const language = codeEditor.getLanguage() || q.language || 'javascript';
     const res = await API.code.submit({
       interviewId: interviewData.id,
       questionId: q.id,
       code,
-      language: q.language || 'javascript'
+      language
     });
 
     renderTestResults(res.data, true);

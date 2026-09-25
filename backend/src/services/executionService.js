@@ -31,7 +31,7 @@ async function runCode({ interviewId, questionId, code, language = 'javascript',
     targetTestCases = question.testCases.filter(tc => !tc.isHidden);
   }
 
-  const executionOutput = sandboxedRunner.runInSandbox(code, targetTestCases, { timeoutMs: 3000 });
+  const executionOutput = sandboxedRunner.runInSandbox(code, targetTestCases, { language, timeoutMs: 4000 });
 
   // Record an InterviewEvent for replay timeline
   if (interviewId) {
@@ -99,7 +99,7 @@ async function submitCode({ interviewId, questionId, code, language = 'javascrip
   }
 
   // Submissions evaluate against ALL test cases (both visible and hidden)!
-  const executionOutput = sandboxedRunner.runInSandbox(code, question.testCases, { timeoutMs: 3000 });
+  const executionOutput = sandboxedRunner.runInSandbox(code, question.testCases, { language, timeoutMs: 4000 });
 
   // Calculate execution benchmarks
   const totalExecutionTime = executionOutput.results.reduce((acc, r) => acc + (r.executionTimeMs || 0), 0);

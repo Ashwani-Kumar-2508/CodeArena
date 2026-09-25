@@ -54,6 +54,16 @@ class RealtimeClient {
         }
       });
 
+      this.socket.on('permission_denied', ({ message }) => {
+        console.warn('[Realtime Permission Denied]', message);
+        // Show subtle notification banner if present
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 right-4 z-50 px-4 py-2 rounded-xl bg-amber-950/90 border border-amber-800 text-amber-200 text-xs shadow-xl backdrop-blur animate-fade-in';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      });
+
       return this.socket;
     } catch (err) {
       console.error('[Realtime] Failed to initialize socket:', err);
@@ -88,9 +98,26 @@ class RealtimeClient {
     }
   }
 
-  sendCodeChange(interviewId, code, delta) {
+  sendCodeChange(interviewId, questionId, code, language, delta) {
     if (!this.socket || !this.connected) return;
-    this.socket.emit('code_change', { interviewId, code, delta });
+    // Overload: if second argument is code string and third is delta
+    if (typeof questionId === 'string' && typeof code !== 'string') {
+      delta = code;
+      code = questionId;
+      questionId = 'default';
+      language = 'javascript';
+    }
+    this.socket.emit('code_change', { interviewId, questionId, code, language, delta });
+  }
+
+  sendLanguageChange(interviewId, questionId, language) {
+    if (!this.socket || !this.connected) return;
+    this.socket.emit('language_change', { interviewId, questionId, language });
+  }
+
+  sendScreenShareStatus(interviewId, isSharing) {
+    if (!this.socket || !this.connected) return;
+    this.socket.emit('screen_share_status', { interviewId, isSharing });
   }
 
   sendCursorMove(interviewId, position) {

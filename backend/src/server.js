@@ -15,6 +15,7 @@ const codeRoutes = require('./routes/codeRoutes');
 const evaluationRoutes = require('./routes/evaluationRoutes');
 const replayRoutes = require('./routes/replayRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const practiceRoutes = require('./routes/practiceRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 const { initSocket } = require('./socket/socketHandler');
 
@@ -73,6 +74,7 @@ app.use('/api/questions', questionRoutes);
 app.use('/api/code', codeRoutes);
 app.use('/api/evaluations', evaluationRoutes);
 app.use('/api/replay', replayRoutes);
+app.use('/api/practice', practiceRoutes);
 
 // Fallback for HTML5 client-side navigation
 app.get('*', (req, res, next) => {
@@ -86,6 +88,7 @@ app.get('*', (req, res, next) => {
   if (req.path === '/interview') return res.sendFile(path.join(frontendPath, 'views/interview.html'));
   if (req.path === '/replay') return res.sendFile(path.join(frontendPath, 'views/replay.html'));
   if (req.path === '/problems') return res.sendFile(path.join(frontendPath, 'views/problems.html'));
+  if (req.path === '/practice') return res.sendFile(path.join(frontendPath, 'views/practice.html'));
 
   res.sendFile(path.join(frontendPath, 'index.html'));
 });
@@ -94,12 +97,14 @@ app.get('*', (req, res, next) => {
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`=======================================================`);
-  console.log(`🚀 CodeArena Server listening on http://localhost:${PORT}`);
-  console.log(`📡 Socket.IO Real-Time Gateway initialized`);
-  console.log(`📁 Static Frontend served from: ${frontendPath}`);
-  console.log(`=======================================================`);
-});
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`=======================================================`);
+    console.log(`🚀 CodeArena Server listening on http://localhost:${PORT}`);
+    console.log(`📡 Socket.IO Real-Time Gateway initialized`);
+    console.log(`📁 Static Frontend served from: ${frontendPath}`);
+    console.log(`=======================================================`);
+  });
+}
 
 module.exports = { app, server };
