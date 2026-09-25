@@ -274,6 +274,75 @@ function initSocket(io) {
       io.to(interviewId).emit('hint_revealed', { hint, index });
     });
 
+    // WebRTC Peer-to-Peer Audio & Video Signaling
+    socket.on('webrtc_ready', ({ interviewId }) => {
+      if (!interviewId || socket.interviewId !== interviewId) return;
+      socket.to(interviewId).emit('webrtc_peer_ready', {
+        socketId: socket.id,
+        user: { id: user.id, name: user.name, role: user.role }
+      });
+    });
+
+    socket.on('webrtc_offer', ({ interviewId, targetSocketId, offer }) => {
+      if (!interviewId || socket.interviewId !== interviewId) return;
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc_offer', {
+          fromSocketId: socket.id,
+          fromUser: { id: user.id, name: user.name, role: user.role },
+          offer
+        });
+      } else {
+        socket.to(interviewId).emit('webrtc_offer', {
+          fromSocketId: socket.id,
+          fromUser: { id: user.id, name: user.name, role: user.role },
+          offer
+        });
+      }
+    });
+
+    socket.on('webrtc_answer', ({ interviewId, targetSocketId, answer }) => {
+      if (!interviewId || socket.interviewId !== interviewId) return;
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc_answer', {
+          fromSocketId: socket.id,
+          fromUser: { id: user.id, name: user.name, role: user.role },
+          answer
+        });
+      } else {
+        socket.to(interviewId).emit('webrtc_answer', {
+          fromSocketId: socket.id,
+          fromUser: { id: user.id, name: user.name, role: user.role },
+          answer
+        });
+      }
+    });
+
+    socket.on('webrtc_ice_candidate', ({ interviewId, targetSocketId, candidate }) => {
+      if (!interviewId || socket.interviewId !== interviewId) return;
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc_ice_candidate', {
+          fromSocketId: socket.id,
+          candidate
+        });
+      } else {
+        socket.to(interviewId).emit('webrtc_ice_candidate', {
+          fromSocketId: socket.id,
+          candidate
+        });
+      }
+    });
+
+    socket.on('webrtc_media_state', ({ interviewId, isMuted, isCameraOff, isScreenSharing }) => {
+      if (!interviewId || socket.interviewId !== interviewId) return;
+      socket.to(interviewId).emit('webrtc_remote_media_state', {
+        socketId: socket.id,
+        userId: user.id,
+        isMuted: !!isMuted,
+        isCameraOff: !!isCameraOff,
+        isScreenSharing: !!isScreenSharing
+      });
+    });
+
     // Disconnect & Cleanup
     socket.on('disconnect', async () => {
       const interviewId = socket.interviewId;

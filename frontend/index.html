@@ -14,78 +14,398 @@
   <!-- Navigation Bar -->
   <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <a href="/" class="flex items-center gap-2 font-black text-xl tracking-tight text-white">
-          <span class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white shadow-lg shadow-indigo-600/30">⚔</span>
+      <div class="flex items-center gap-8">
+        <a href="/" class="flex items-center gap-2 font-black text-xl tracking-tight text-white group">
+          <span class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-mono text-white shadow-lg shadow-indigo-600/30 group-hover:bg-indigo-500 transition">⚔</span>
           Code<span class="text-indigo-400">Arena</span>
         </a>
+        <nav class="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <a href="#features" class="hover:text-white transition">Features</a>
+          <a href="#roles" class="hover:text-white transition">Solutions</a>
+          <a href="#workflow" class="hover:text-white transition">Workflow</a>
+          <a href="#technology" class="hover:text-white transition">Technology</a>
+          <a href="/views/problems.html" class="hover:text-indigo-400 transition">Question Bank</a>
+        </nav>
       </div>
 
-      <nav class="flex items-center gap-4">
+      <div class="flex items-center gap-4">
         <div id="auth-nav-links" class="flex items-center gap-3">
           <a href="/views/login.html" class="text-sm font-medium text-slate-300 hover:text-white transition">Sign In</a>
-          <a href="/views/register.html" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white transition shadow-lg shadow-indigo-600/20">Get Started</a>
+          <a href="/views/register.html" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold text-white transition shadow-lg shadow-indigo-600/20">Get Started</a>
         </div>
         <div id="user-nav-dropdown" class="hidden flex items-center gap-3">
           <a href="/views/dashboard.html" class="text-sm font-medium text-slate-300 hover:text-white transition">Dashboard</a>
           <span id="user-role-badge"></span>
           <button onclick="Auth.logout()" class="text-xs text-slate-400 hover:text-rose-400 transition ml-2">Logout</button>
         </div>
-      </nav>
+      </div>
     </div>
   </header>
 
   <!-- Hero Section -->
-  <main class="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center max-w-5xl mx-auto">
-    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-950/40 text-indigo-300 text-xs font-medium mb-6">
-      <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
-      Portfolio-Grade Technical Interview System
-    </div>
-
-    <h1 class="text-4xl md:text-6xl font-black tracking-tight text-white leading-tight mb-6">
-      Collaborative Technical Interviews <br/>
-      <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">Built Around the Actual Workflow</span>
-    </h1>
-
-    <p class="text-slate-400 text-base md:text-lg max-w-3xl mb-10 leading-relaxed">
-      Not another generic Replit clone. CodeArena combines interviewer/candidate role workflows, multi-format questions, CRDT-based Monaco Editor synchronization, sandboxed code execution with hidden test cases, structured scorecards, and retrospective <strong>Interview Replay</strong>.
-    </p>
-
-    <div class="flex flex-wrap items-center justify-center gap-4 mb-16">
-      <a href="/views/login.html" class="px-6 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white shadow-xl shadow-indigo-600/25 transition flex items-center gap-2">
-        Launch Demo Workspace
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-      </a>
-      <a href="/views/problems.html" class="px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-medium transition">
-        Browse Question Bank
-      </a>
-    </div>
-
-    <!-- Feature Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-left w-full">
-      <div class="glass-panel p-6 rounded-2xl">
-        <div class="w-10 h-10 rounded-xl bg-indigo-950 border border-indigo-800 flex items-center justify-center text-indigo-400 mb-4 font-mono font-bold">01</div>
-        <h3 class="text-lg font-bold text-white mb-2">Role-Based Control</h3>
-        <p class="text-sm text-slate-400 leading-relaxed">Interviewers control timers, assign questions, run hidden test suites, and grade scorecards. Candidates focus entirely on coding.</p>
+  <main class="flex-1">
+    <section class="flex flex-col items-center justify-center px-6 pt-20 pb-16 text-center max-w-5xl mx-auto">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-950/40 text-indigo-300 text-xs font-medium mb-6">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        Enterprise-Grade Technical Interview Platform
       </div>
 
-      <div class="glass-panel p-6 rounded-2xl">
-        <div class="w-10 h-10 rounded-xl bg-purple-950 border border-purple-800 flex items-center justify-center text-purple-400 mb-4 font-mono font-bold">02</div>
-        <h3 class="text-lg font-bold text-white mb-2">Monaco + Yjs CRDT</h3>
-        <p class="text-sm text-slate-400 leading-relaxed">Deterministic real-time code synchronization and remote cursor presence without central race conditions.</p>
+      <h1 class="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white leading-tight mb-6">
+        Run Technical Interviews in One <br/>
+        <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400">Collaborative Workspace</span>
+      </h1>
+
+      <p class="text-slate-400 text-base md:text-lg max-w-3xl mb-10 leading-relaxed">
+        Unify live peer-to-peer audio and video, collaborative Monaco code editing, isolated sandbox execution with hidden verification tests, and structured candidate evaluation — purpose-built for engineering teams.
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-4 mb-16">
+        <a href="/views/register.html" class="px-7 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white shadow-xl shadow-indigo-600/25 transition flex items-center gap-2 text-sm">
+          <span>Start an Interview</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </a>
+        <a href="/views/problems.html" class="px-7 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-medium transition text-sm">
+          Explore Question Bank
+        </a>
       </div>
 
-      <div class="glass-panel p-6 rounded-2xl">
-        <div class="w-10 h-10 rounded-xl bg-pink-950 border border-pink-800 flex items-center justify-center text-pink-400 mb-4 font-mono font-bold">03</div>
-        <h3 class="text-lg font-bold text-white mb-2">Interview Replay</h3>
-        <p class="text-sm text-slate-400 leading-relaxed">Inspect how the candidate reasoned through the problem with scrubbable event timelines and version playback.</p>
+      <!-- Live Room Mockup Showcase -->
+      <div class="w-full max-w-4xl rounded-2xl border border-slate-800 bg-slate-900/60 p-2 shadow-2xl backdrop-blur">
+        <div class="h-8 border-b border-slate-800/80 bg-slate-950/80 rounded-t-xl px-4 flex items-center justify-between text-xs text-slate-400">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+            <span class="font-mono text-[11px] text-slate-500 ml-2">codearena-live-session — Two Sum (Algorithmic Verification)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="flex items-center gap-1 text-[10px] text-emerald-400 font-mono"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Video Connected</span>
+            <span class="px-2 py-0.5 rounded bg-slate-800 font-mono text-[10px] text-slate-300">42:15</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 p-3 text-left">
+          <div class="md:col-span-2 bg-slate-950 rounded-xl p-4 border border-slate-800/80 font-mono text-xs text-slate-300">
+            <div class="text-slate-500 mb-2 flex items-center justify-between text-[11px]">
+              <span>solution.js</span>
+              <span class="text-emerald-400">Isolated Sandbox VM</span>
+            </div>
+            <p class="text-purple-400">function <span class="text-indigo-300">twoSum</span>(nums, target) {</p>
+            <p class="pl-4 text-slate-400">const map = new Map();</p>
+            <p class="pl-4 text-slate-400">for (let i = 0; i &lt; nums.length; i++) {</p>
+            <p class="pl-8 text-slate-300">const diff = target - nums[i];</p>
+            <p class="pl-8 text-emerald-400">if (map.has(diff)) return [map.get(diff), i];</p>
+            <p class="pl-8 text-slate-400">map.set(nums[i], i);</p>
+            <p class="pl-4 text-slate-400">}</p>
+            <p class="text-purple-400">}</p>
+            <div class="mt-4 pt-2 border-t border-slate-800/60 flex items-center gap-2 text-[11px] text-emerald-400">
+              <span>✅ 3/3 Test Cases Passed</span>
+              <span class="text-slate-500 font-sans ml-auto">Time: 14ms &bull; Memory: 28MB</span>
+            </div>
+          </div>
+          <div class="bg-slate-950 rounded-xl p-3 border border-slate-800/80 flex flex-col justify-between">
+            <div class="aspect-video rounded-lg bg-slate-900 border border-slate-800 relative flex items-center justify-center overflow-hidden">
+              <div class="text-center">
+                <span class="text-2xl">👨‍💻</span>
+                <p class="text-[10px] text-slate-400 mt-1 font-semibold">Candidate Stream</p>
+              </div>
+              <span class="absolute bottom-1 left-1 text-[9px] font-mono px-1 rounded bg-black/70 text-emerald-400">🎙 On</span>
+            </div>
+            <div class="mt-2 bg-slate-900/80 p-2 rounded-lg border border-slate-800 text-[11px]">
+              <span class="text-slate-400 block font-semibold mb-1">Interviewer Scorecard</span>
+              <div class="flex items-center justify-between text-[10px] text-slate-300 mb-1">
+                <span>Problem Solving</span>
+                <span class="text-indigo-400 font-mono font-bold">5 / 5</span>
+              </div>
+              <div class="flex items-center justify-between text-[10px] text-slate-300">
+                <span>Code Quality</span>
+                <span class="text-indigo-400 font-mono font-bold">4.8 / 5</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
+
+    <!-- Core Feature Cards (4 Pillars) -->
+    <section id="features" class="max-w-7xl mx-auto px-6 py-20 border-t border-slate-800/60">
+      <div class="text-center mb-16">
+        <h2 class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-widest mb-2">Core Platform Pillars</h2>
+        <p class="text-3xl md:text-4xl font-black text-white">Built for Rigorous Technical Evaluations</p>
+        <p class="text-slate-400 text-sm max-w-2xl mx-auto mt-3">Every tool required for live candidate assessment integrated into a unified, high-performance interface.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Pillar 1 -->
+        <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between hover:border-indigo-500/50 transition">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-indigo-950/80 border border-indigo-800/80 flex items-center justify-center text-indigo-400 text-xl mb-4 font-bold shadow-lg shadow-indigo-950">
+              📹
+            </div>
+            <h3 class="text-base font-bold text-white mb-2">Live Interview Rooms</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              Peer-to-peer WebRTC video and audio with pre-interview hardware diagnostics. Seamless dual video feeds, self-view mirroring, and in-call screen sharing.
+            </p>
+          </div>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-3 border-t border-slate-800/60">
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Pre-interview device check modal</li>
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Audio-only resilient fallbacks</li>
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Dual socket & media health pills</li>
+          </ul>
+        </div>
+
+        <!-- Pillar 2 -->
+        <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between hover:border-purple-500/50 transition">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-purple-950/80 border border-purple-800/80 flex items-center justify-center text-purple-400 text-xl mb-4 font-bold shadow-lg shadow-purple-950">
+              ⚡
+            </div>
+            <h3 class="text-base font-bold text-white mb-2">Collaborative Coding</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              Real-time synchronized Monaco Editor with remote cursor visibility, syntax highlighting, and isolated sandbox code execution with hidden validation tests.
+            </p>
+          </div>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-3 border-t border-slate-800/60">
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Sub-millisecond cursor sync</li>
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Multi-language sandbox execution</li>
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Visible & hidden test cases</li>
+          </ul>
+        </div>
+
+        <!-- Pillar 3 -->
+        <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between hover:border-pink-500/50 transition">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-pink-950/80 border border-pink-800/80 flex items-center justify-center text-pink-400 text-xl mb-4 font-bold shadow-lg shadow-pink-950">
+              📝
+            </div>
+            <h3 class="text-base font-bold text-white mb-2">Structured Evaluation</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              Eliminate subjective hiring bias. Multi-dimensional rubric scoring across problem-solving, code efficiency, and communication with private interviewer notes.
+            </p>
+          </div>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-3 border-t border-slate-800/60">
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Slide-out evaluation drawer</li>
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Confidential interviewer scratchpad</li>
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Standardized hiring recommendations</li>
+          </ul>
+        </div>
+
+        <!-- Pillar 4 -->
+        <div class="glass-panel p-6 rounded-2xl flex flex-col justify-between hover:border-emerald-500/50 transition">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-950/80 border border-emerald-800/80 flex items-center justify-center text-emerald-400 text-xl mb-4 font-bold shadow-lg shadow-emerald-950">
+              📊
+            </div>
+            <h3 class="text-base font-bold text-white mb-2">Interview Insights</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              Complete historical session archives, test execution telemetry, and structured candidate evaluation summaries for hiring committees.
+            </p>
+          </div>
+          <ul class="text-[11px] text-slate-400 space-y-1.5 pt-3 border-t border-slate-800/60">
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Centralized session records</li>
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Granular execution timing logs</li>
+            <li class="flex items-center gap-1.5 text-slate-300"><span>✔</span> Role-segregated dashboard views</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Role Value Breakdown -->
+    <section id="roles" class="max-w-7xl mx-auto px-6 py-20 border-t border-slate-800/60 bg-slate-950/40">
+      <div class="text-center mb-16">
+        <h2 class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-widest mb-2">Role-Tailored Workflows</h2>
+        <p class="text-3xl md:text-4xl font-black text-white">Designed for Every Participant in the Hiring Loop</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- For Candidates -->
+        <div class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-emerald-950 border border-emerald-800 flex items-center justify-center text-emerald-400 font-bold">
+              👨‍💻
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-white">For Candidates</h3>
+              <span class="text-[11px] text-slate-400">Frictionless Assessment Experience</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed mb-4">
+            Zero environment setup required. Jump directly into a full-featured browser IDE with immediate test execution feedback and natural face-to-face video communication.
+          </p>
+          <ul class="text-xs text-slate-300 space-y-2">
+            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Full Monaco IDE with familiar keybindings</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Real-time automated test feedback</li>
+            <li class="flex items-center gap-2"><span class="text-emerald-400 font-bold">✓</span> Direct audio/video & chat interaction</li>
+          </ul>
+        </div>
+
+        <!-- For Interviewers -->
+        <div class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-purple-950 border border-purple-800 flex items-center justify-center text-purple-400 font-bold">
+              🎯
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-white">For Interviewers</h3>
+              <span class="text-[11px] text-slate-400">Total Session Control & Scoring</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed mb-4">
+            Observe the candidate's real-time problem-solving approach. Manage interview stages, dynamically switch technical questions, and document private notes.
+          </p>
+          <ul class="text-xs text-slate-300 space-y-2">
+            <li class="flex items-center gap-2"><span class="text-purple-400 font-bold">✓</span> Synchronized multi-question progression</li>
+            <li class="flex items-center gap-2"><span class="text-purple-400 font-bold">✓</span> Private scratchpad hidden from candidate</li>
+            <li class="flex items-center gap-2"><span class="text-purple-400 font-bold">✓</span> Comprehensive structured scorecards</li>
+          </ul>
+        </div>
+
+        <!-- For Engineering Teams -->
+        <div class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-indigo-950 border border-indigo-800 flex items-center justify-center text-indigo-400 font-bold">
+              🏢
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-white">For Engineering Teams</h3>
+              <span class="text-[11px] text-slate-400">Standardized & Secure Hiring</span>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed mb-4">
+            Establish consistent technical rubrics across your engineering organization. Isolate untrusted execution safely and make data-backed hiring decisions.
+          </p>
+          <ul class="text-xs text-slate-300 space-y-2">
+            <li class="flex items-center gap-2"><span class="text-indigo-400 font-bold">✓</span> Standardized rubric score consistency</li>
+            <li class="flex items-center gap-2"><span class="text-indigo-400 font-bold">✓</span> Sandboxed execution memory & CPU bounds</li>
+            <li class="flex items-center gap-2"><span class="text-indigo-400 font-bold">✓</span> Role-based access security & data governance</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4-Step Interview Lifecycle Workflow -->
+    <section id="workflow" class="max-w-7xl mx-auto px-6 py-20 border-t border-slate-800/60">
+      <div class="text-center mb-16">
+        <h2 class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-widest mb-2">Lifecycle Architecture</h2>
+        <p class="text-3xl md:text-4xl font-black text-white">The Complete Technical Interview Flow</p>
+        <p class="text-slate-400 text-sm max-w-2xl mx-auto mt-3">From preparation through final hiring recommendation, CodeArena standardizes every stage.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <!-- Step 1 -->
+        <div class="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+          <div class="text-indigo-400 font-mono font-bold text-sm mb-3">STEP 01</div>
+          <h3 class="text-base font-bold text-white mb-2">Schedule & Prepare</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Create scheduled interview sessions, assign qualified interviewers and candidates, and select curated multi-format technical questions.
+          </p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+          <div class="text-indigo-400 font-mono font-bold text-sm mb-3">STEP 02</div>
+          <h3 class="text-base font-bold text-white mb-2">Meet & Verify</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Participants enter with automated camera, microphone, and speaker diagnostics, launching peer-to-peer WebRTC video and audio.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+          <div class="text-indigo-400 font-mono font-bold text-sm mb-3">STEP 03</div>
+          <h3 class="text-base font-bold text-white mb-2">Collaborate & Execute</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Collaboratively code inside the Monaco Editor, track remote cursors, and validate solutions against isolated sandbox test cases.
+          </p>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="relative bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
+          <div class="text-indigo-400 font-mono font-bold text-sm mb-3">STEP 04</div>
+          <h3 class="text-base font-bold text-white mb-2">Evaluate & Decide</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Submit multi-dimensional scoring rubrics, document qualitative feedback, and record authoritative hiring recommendations.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Modern Technology Stack Showcase -->
+    <section id="technology" class="max-w-7xl mx-auto px-6 py-20 border-t border-slate-800/60 bg-slate-950/60">
+      <div class="text-center mb-16">
+        <h2 class="text-xs font-mono font-bold text-indigo-400 uppercase tracking-widest mb-2">Engineering Foundation</h2>
+        <p class="text-3xl md:text-4xl font-black text-white">Built with Modern, Battle-Tested Technologies</p>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
+        <div class="p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+          <div class="text-xl mb-2 font-mono text-indigo-400">🌐</div>
+          <div class="text-xs font-bold text-white mb-1">WebRTC</div>
+          <div class="text-[10px] text-slate-400">Peer-to-Peer Video/Audio</div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+          <div class="text-xl mb-2 font-mono text-indigo-400">⚡</div>
+          <div class="text-xs font-bold text-white mb-1">Socket.IO</div>
+          <div class="text-[10px] text-slate-400">Real-Time State Gateway</div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+          <div class="text-xl mb-2 font-mono text-indigo-400">💻</div>
+          <div class="text-xs font-bold text-white mb-1">Monaco Editor</div>
+          <div class="text-[10px] text-slate-400">VS Code Core Engine</div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+          <div class="text-xl mb-2 font-mono text-indigo-400">🟢</div>
+          <div class="text-xs font-bold text-white mb-1">Node & Express</div>
+          <div class="text-[10px] text-slate-400">API Gateway & Auth</div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+          <div class="text-xl mb-2 font-mono text-indigo-400">🐘</div>
+          <div class="text-xs font-bold text-white mb-1">PostgreSQL & Prisma</div>
+          <div class="text-[10px] text-slate-400">Relational Type-Safe DB</div>
+        </div>
+
+        <div class="p-4 rounded-xl bg-slate-900/50 border border-slate-800">
+          <div class="text-xl mb-2 font-mono text-indigo-400">🔒</div>
+          <div class="text-xs font-bold text-white mb-1">Sandbox VM</div>
+          <div class="text-[10px] text-slate-400">Isolated Code Execution</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call to Action Banner -->
+    <section class="max-w-5xl mx-auto px-6 py-20 text-center">
+      <div class="rounded-3xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900 border border-indigo-800/40 p-10 md:p-14 relative overflow-hidden shadow-2xl">
+        <h2 class="text-2xl md:text-4xl font-black text-white mb-4">Ready to Modernize Your Technical Interviews?</h2>
+        <p class="text-slate-400 text-sm max-w-xl mx-auto mb-8">Empower your hiring teams with real-time video, collaborative coding, and objective scoring.</p>
+        <div class="flex flex-wrap items-center justify-center gap-4">
+          <a href="/views/register.html" class="px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white shadow-xl shadow-indigo-600/30 transition text-sm">
+            Create an Account
+          </a>
+          <a href="/views/login.html" class="px-8 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-medium transition text-sm">
+            Sign In to Dashboard
+          </a>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Footer -->
   <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-8 text-center text-xs text-slate-500">
-    <p>CodeArena &copy; 2026. Built by Ashwani Kumar. Node.js &bull; Express &bull; PostgreSQL &bull; Prisma &bull; Monaco Editor &bull; Socket.IO</p>
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2 font-bold text-slate-400">
+        <span class="w-5 h-5 rounded bg-indigo-600 flex items-center justify-center text-white text-[10px] font-mono">⚔</span>
+        CodeArena
+      </div>
+      <p>CodeArena &copy; 2026. Enterprise Collaborative Technical Interview Platform.</p>
+      <div class="flex items-center gap-4 text-slate-400">
+        <a href="/views/problems.html" class="hover:text-white transition">Questions</a>
+        <a href="/views/login.html" class="hover:text-white transition">Sign In</a>
+        <a href="/views/register.html" class="hover:text-white transition">Register</a>
+      </div>
+    </div>
   </footer>
 
   <script>

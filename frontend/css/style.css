@@ -105,3 +105,8 @@ code, pre, .font-mono {
   background-color: #4f46e5;
   box-shadow: 0 0 15px rgba(99, 102, 241, 0.35);
 }
+
+/* Mirrored camera self-view */
+.mirror-video {
+  transform: scaleX(-1);
+}

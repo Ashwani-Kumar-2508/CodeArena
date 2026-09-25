@@ -43,9 +43,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupQuestionsNavigation();
     setupChat();
     setupEvaluationDrawer(user);
+    setupRightPanelTabs();
 
     // 3. Connect real-time socket and join room
-    initRealtime(interviewId, user);
+    const socket = initRealtime(interviewId, user);
 
     // 4. Initialize Monaco Editor with starter code of first question
     const initialQuestion = getActiveQuestion();
@@ -72,6 +73,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Dismiss loading overlay
     if (loadingOverlay) loadingOverlay.classList.add('hidden');
+
+    // 8. Launch Pre-Interview Device Check Modal
+    await setupDeviceCheckModal(interviewId, socket);
 
   } catch (err) {
     console.error('Failed to initialize interview room:', err);
@@ -270,6 +274,8 @@ function initRealtime(interviewId, user) {
   socket.on('new_chat', (chatData) => {
     appendChatMessage(chatData);
   });
+
+  return socket;
 }
 
 function startCountdown(startedAt, durationMinutes) {
@@ -490,7 +496,7 @@ function appendChatMessage(data) {
   const container = document.getElementById('chat-messages');
   if (!container) return;
 
-  const isMe = data.userId === window.currentUser.id;
+  const isMe = data.userId === window.currentUser?.id;
   const el = document.createElement('div');
   el.className = `flex flex-col text-xs mb-2 ${isMe ? 'items-end' : 'items-start'}`;
   el.innerHTML = `
@@ -501,6 +507,16 @@ function appendChatMessage(data) {
   `;
   container.appendChild(el);
   container.scrollTop = container.scrollHeight;
+
+  // If chat tab is not focused, increment unread badge
+  if (currentRightPanelTab !== 'chat') {
+    unreadChatCount++;
+    const unreadBadge = document.getElementById('chat-unread-badge');
+    if (unreadBadge) {
+      unreadBadge.textContent = unreadChatCount;
+      unreadBadge.classList.remove('hidden');
+    }
+  }
 }
 
 function setupEvaluationDrawer(user) {
@@ -539,3 +555,240 @@ function setupEvaluationDrawer(user) {
 function openEvaluationDrawer() {
   document.getElementById('evaluation-drawer')?.classList.remove('translate-x-full');
 }
+
+/* =========================================================================
+   PRE-INTERVIEW DEVICE CHECK & RIGHT PANEL TABS
+   ========================================================================= */
+
+let activeMicAudioCtx = null;
+let micAnimFrameId = null;
+let currentRightPanelTab = 'video';
+let isLayoutStacked = true;
+let unreadChatCount = 0;
+
+function setupRightPanelTabs() {
+  const tabVideo = document.getElementById('panel-tab-video');
+  const tabChat = document.getElementById('panel-tab-chat');
+  const tabPresence = document.getElementById('panel-tab-presence');
+  const toggleLayout = document.getElementById('panel-toggle-layout');
+
+  const videoSection = document.getElementById('live-video-section');
+  const chatSection = document.getElementById('chat-section');
+  const presenceSection = document.getElementById('presence-section');
+  const unreadBadge = document.getElementById('chat-unread-badge');
+
+  function setTab(tab) {
+    currentRightPanelTab = tab;
+
+    // Reset tab button styles
+    [tabVideo, tabChat, tabPresence].forEach(btn => {
+      if (btn) {
+        btn.className = 'px-2.5 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition flex items-center gap-1.5';
+      }
+    });
+
+    if (tab === 'video') {
+      if (tabVideo) tabVideo.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-600/50 transition flex items-center gap-1.5';
+      if (videoSection) videoSection.classList.remove('hidden');
+      if (isLayoutStacked && chatSection) chatSection.classList.remove('hidden');
+      if (presenceSection) presenceSection.classList.add('hidden');
+    } else if (tab === 'chat') {
+      if (tabChat) tabChat.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-600/50 transition flex items-center gap-1.5 relative';
+      unreadChatCount = 0;
+      if (unreadBadge) unreadBadge.classList.add('hidden');
+      if (!isLayoutStacked && videoSection) videoSection.classList.add('hidden');
+      if (chatSection) chatSection.classList.remove('hidden');
+      if (presenceSection) presenceSection.classList.add('hidden');
+    } else if (tab === 'presence') {
+      if (tabPresence) tabPresence.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-600/50 transition flex items-center gap-1.5';
+      if (!isLayoutStacked && videoSection) videoSection.classList.add('hidden');
+      if (chatSection) chatSection.classList.add('hidden');
+      if (presenceSection) presenceSection.classList.remove('hidden');
+    }
+  }
+
+  tabVideo?.addEventListener('click', () => setTab('video'));
+  tabChat?.addEventListener('click', () => setTab('chat'));
+  tabPresence?.addEventListener('click', () => setTab('presence'));
+
+  toggleLayout?.addEventListener('click', () => {
+    isLayoutStacked = !isLayoutStacked;
+    if (isLayoutStacked) {
+      if (videoSection) videoSection.classList.remove('hidden');
+      if (chatSection) chatSection.classList.remove('hidden');
+      if (presenceSection) presenceSection.classList.add('hidden');
+    } else {
+      setTab(currentRightPanelTab);
+    }
+  });
+
+  // Bind WebRTC In-Call Controls
+  document.getElementById('webrtc-toggle-mic-btn')?.addEventListener('click', () => {
+    if (window.webrtcManager) window.webrtcManager.toggleMicrophone();
+  });
+  document.getElementById('webrtc-toggle-cam-btn')?.addEventListener('click', () => {
+    if (window.webrtcManager) window.webrtcManager.toggleCamera();
+  });
+  document.getElementById('webrtc-toggle-screen-btn')?.addEventListener('click', () => {
+    if (window.webrtcManager) window.webrtcManager.toggleScreenShare();
+  });
+}
+
+async function setupDeviceCheckModal(interviewId, socket) {
+  const modal = document.getElementById('device-check-modal');
+  if (!modal) return;
+
+  modal.classList.remove('hidden');
+
+  const camStatus = document.getElementById('check-camera-status');
+  const micStatus = document.getElementById('check-mic-status');
+  const previewPlaceholder = document.getElementById('check-preview-placeholder');
+  const speakerBtn = document.getElementById('check-speaker-test-btn');
+  const enterBtn = document.getElementById('enter-interview-btn');
+  const audioOnlyBtn = document.getElementById('enter-audio-only-btn');
+
+  // 1. Hardware enumeration
+  if (window.webrtcManager) {
+    const devices = await window.webrtcManager.checkDevices();
+    if (camStatus) {
+      camStatus.textContent = devices.hasCamera ? 'Camera detected' : 'No camera found';
+      camStatus.className = devices.hasCamera ? 'font-mono text-[11px] text-emerald-400' : 'font-mono text-[11px] text-amber-400';
+    }
+    if (micStatus) {
+      micStatus.textContent = devices.hasMicrophone ? 'Microphone detected' : 'No mic found';
+      micStatus.className = devices.hasMicrophone ? 'font-mono text-[11px] text-emerald-400' : 'font-mono text-[11px] text-amber-400';
+    }
+
+    // 2. Start test preview
+    const previewStream = await window.webrtcManager.startTestPreview('check-preview-video');
+    if (previewStream && previewStream.getVideoTracks().length > 0) {
+      if (previewPlaceholder) previewPlaceholder.classList.add('hidden');
+      if (camStatus) camStatus.textContent = 'Camera active (HD)';
+    } else {
+      if (previewPlaceholder) previewPlaceholder.classList.remove('hidden');
+      if (camStatus) camStatus.textContent = 'Camera unavailable / blocked';
+    }
+
+    // 3. Setup Mic Meter
+    startMicVisualizer(previewStream);
+  }
+
+  // 4. Speaker Test Chime
+  speakerBtn?.addEventListener('click', () => {
+    playSpeakerTestChime();
+  });
+
+  // 5. Enter Live Interview Handlers
+  const finishCheckAndEnter = async (audioOnly = false) => {
+    stopMicVisualizer();
+    if (window.webrtcManager) {
+      window.webrtcManager.stopTestPreview();
+      if (audioOnly) {
+        window.webrtcManager.isCameraOff = true;
+      }
+      modal.classList.add('hidden');
+      if (socket) {
+        await window.webrtcManager.init(interviewId, socket);
+      }
+    } else {
+      modal.classList.add('hidden');
+    }
+  };
+
+  enterBtn?.addEventListener('click', () => finishCheckAndEnter(false));
+  audioOnlyBtn?.addEventListener('click', () => finishCheckAndEnter(true));
+}
+
+function startMicVisualizer(stream) {
+  if (!stream || stream.getAudioTracks().length === 0) {
+    const micStatus = document.getElementById('check-mic-status');
+    if (micStatus) {
+      micStatus.textContent = 'Microphone unavailable';
+      micStatus.className = 'font-mono text-[11px] text-rose-400';
+    }
+    return;
+  }
+
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    activeMicAudioCtx = new AudioContextClass();
+    const source = activeMicAudioCtx.createMediaStreamSource(stream);
+    const analyser = activeMicAudioCtx.createAnalyser();
+    analyser.fftSize = 64;
+    source.connect(analyser);
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const levelBar = document.getElementById('check-mic-level-bar');
+
+    function update() {
+      analyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i];
+      }
+      const average = sum / bufferLength;
+      const percent = Math.min(100, Math.round((average / 128) * 100));
+      if (levelBar) {
+        levelBar.style.width = `${Math.max(5, percent)}%`;
+      }
+      micAnimFrameId = requestAnimationFrame(update);
+    }
+    update();
+  } catch (e) {
+    console.warn('[WebRTC Device Check] Mic visualizer initialization error:', e);
+  }
+}
+
+function stopMicVisualizer() {
+  if (micAnimFrameId) {
+    cancelAnimationFrame(micAnimFrameId);
+    micAnimFrameId = null;
+  }
+  if (activeMicAudioCtx) {
+    activeMicAudioCtx.close().catch(() => {});
+    activeMicAudioCtx = null;
+  }
+}
+
+function playSpeakerTestChime() {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioContextClass();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.12); // E5
+    osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.24); // G5
+    osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.36); // C6
+
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.6);
+
+    const speakerBtn = document.getElementById('check-speaker-test-btn');
+    if (speakerBtn) {
+      speakerBtn.innerHTML = '<span>🔊</span> Playing chime...';
+      setTimeout(() => {
+        speakerBtn.innerHTML = '<span>✔</span> Sound verified';
+      }, 700);
+    }
+  } catch (err) {
+    console.warn('AudioContext speaker test failed:', err);
+  }
+}
+
+window.addEventListener('beforeunload', () => {
+  stopMicVisualizer();
+  if (window.webrtcManager) {
+    window.webrtcManager.destroy();
+  }
+});
