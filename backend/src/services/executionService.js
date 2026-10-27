@@ -33,7 +33,7 @@ async function runCode({ interviewId, questionId, code, language = 'javascript',
 
   const executionOutput = sandboxedRunner.runInSandbox(code, targetTestCases, { language, timeoutMs: 4000 });
 
-  // Record an InterviewEvent for replay timeline
+  // Record an InterviewEvent for replay timeline (only when in an interview session)
   if (interviewId) {
     await prisma.interviewEvent.create({
       data: {
@@ -103,91 +103,106 @@ async function submitCode({ interviewId, questionId, code, language = 'javascrip
 
   // Calculate execution benchmarks
   const totalExecutionTime = executionOutput.results.reduce((acc, r) => acc + (r.executionTimeMs || 0), 0);
+  const submissionStatus = executionOutput.allPassed ? 'PASSED' : 'FAILED';
 
-  // Upsert CodingSession
-  let session = await prisma.codingSession.findFirst({
-    where: { interviewId, questionId }
+  // Sanitize helper for hidden test case details (used in both branches)
+  const sanitizeResult = r => ({
+    testId: r.testId,
+    passed: r.passed,
+    executionTimeMs: r.executionTimeMs,
+    error: r.error || null,
+    isHidden: r.isHidden,
+    input: (user.role === 'CANDIDATE' && r.isHidden) ? '[Hidden]' : r.input,
+    expectedOutput: (user.role === 'CANDIDATE' && r.isHidden) ? '[Hidden]' : r.expectedOutput,
+    actualOutput: (user.role === 'CANDIDATE' && r.isHidden) ? '[Hidden]' : r.actualOutput
   });
 
-  if (!session) {
-    session = await prisma.codingSession.create({
+  // Only persist to DB when this is part of an active interview session
+  if (interviewId) {
+    // Upsert CodingSession
+    let session = await prisma.codingSession.findFirst({
+      where: { interviewId, questionId }
+    });
+
+    if (!session) {
+      session = await prisma.codingSession.create({
+        data: {
+          interviewId,
+          questionId,
+          currentCode: code,
+          language,
+          status: 'SUBMITTED',
+          submittedAt: new Date()
+        }
+      });
+    } else {
+      session = await prisma.codingSession.update({
+        where: { id: session.id },
+        data: {
+          currentCode: code,
+          status: 'SUBMITTED',
+          submittedAt: new Date()
+        }
+      });
+    }
+
+    // Create CodeVersion snapshot
+    await prisma.codeVersion.create({
+      data: {
+        codingSessionId: session.id,
+        code,
+        trigger: 'SUBMISSION'
+      }
+    });
+
+    // Create Submission record
+    const submission = await prisma.submission.create({
+      data: {
+        codingSessionId: session.id,
+        code,
+        language,
+        status: submissionStatus,
+        passedCount: executionOutput.passedCount,
+        totalCount: executionOutput.totalCount,
+        executionTimeMs: Math.round(totalExecutionTime * 100) / 100,
+        testResults: executionOutput.results.map(sanitizeResult)
+      }
+    });
+
+    // Log submission event for replay timeline
+    await prisma.interviewEvent.create({
       data: {
         interviewId,
-        questionId,
-        currentCode: code,
-        language,
-        status: 'SUBMITTED',
-        submittedAt: new Date()
+        userId: user.id,
+        eventType: 'SUBMISSION',
+        payload: {
+          submissionId: submission.id,
+          questionId,
+          status: submissionStatus,
+          passedCount: executionOutput.passedCount,
+          totalCount: executionOutput.totalCount
+        }
       }
     });
-  } else {
-    session = await prisma.codingSession.update({
-      where: { id: session.id },
-      data: {
-        currentCode: code,
-        status: 'SUBMITTED',
-        submittedAt: new Date()
-      }
-    });
-  }
 
-  // Create CodeVersion snapshot
-  await prisma.codeVersion.create({
-    data: {
-      codingSessionId: session.id,
-      code,
-      trigger: 'SUBMISSION'
-    }
-  });
-
-  // Create Submission record
-  const submissionStatus = executionOutput.allPassed ? 'PASSED' : 'FAILED';
-  const submission = await prisma.submission.create({
-    data: {
-      codingSessionId: session.id,
-      code,
-      language,
+    return {
+      submissionId: submission.id,
       status: submissionStatus,
       passedCount: executionOutput.passedCount,
       totalCount: executionOutput.totalCount,
-      executionTimeMs: Math.round(totalExecutionTime * 100) / 100,
-      testResults: executionOutput.results.map(r => ({
-        testId: r.testId,
-        passed: r.passed,
-        executionTimeMs: r.executionTimeMs,
-        error: r.error || null,
-        // If candidate, sanitize hidden test specifics from the returned result
-        isHidden: r.isHidden,
-        input: (user.role === 'CANDIDATE' && r.isHidden) ? '[Hidden]' : r.input,
-        expectedOutput: (user.role === 'CANDIDATE' && r.isHidden) ? '[Hidden]' : r.expectedOutput,
-        actualOutput: (user.role === 'CANDIDATE' && r.isHidden) ? '[Hidden]' : r.actualOutput
-      }))
-    }
-  });
+      executionTimeMs: submission.executionTimeMs,
+      results: submission.testResults
+    };
+  }
 
-  // Log submission event for replay
-  await prisma.interviewEvent.create({
-    data: {
-      interviewId,
-      userId: user.id,
-      eventType: 'SUBMISSION',
-      payload: {
-        submissionId: submission.id,
-        questionId,
-        status: submissionStatus,
-        passedCount: executionOutput.passedCount,
-        totalCount: executionOutput.totalCount
-      }
-    }
-  });
-
+  // No interviewId: return execution results without DB persistence (e.g. practice-mode submit via code route)
   return {
-    submissionId: submission.id,
+    submissionId: null,
     status: submissionStatus,
     passedCount: executionOutput.passedCount,
     totalCount: executionOutput.totalCount,
-    executionTimeMs: submission.executionTimeMs,
-    results: submission.testResults
+    executionTimeMs: Math.round(totalExecutionTime * 100) / 100,
+    results: executionOutput.results.map(sanitizeResult)
   };
 }
 

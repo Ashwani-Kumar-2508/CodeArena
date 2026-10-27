@@ -402,7 +402,6 @@ function runCompiledNative(code, testCases = [], options = {}, isCpp = true) {
   const timeoutMs = options.timeoutMs || 4000;
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), isCpp ? 'codearena_cpp_' : 'codearena_c_'));
   const srcFile = isCpp ? 'solution.cpp' : 'solution.c';
-  const binFile = process.platform === 'win32' ? 'solution.exe' : './solution';
   const results = [];
   let passedCount = 0;
 
@@ -411,7 +410,10 @@ function runCompiledNative(code, testCases = [], options = {}, isCpp = true) {
     fs.writeFileSync(srcPath, code, 'utf8');
 
     const compiler = isCpp ? 'g++' : 'gcc';
-    const compileArgs = isCpp ? ['-O2', '-std=c++17', srcFile, '-o', 'solution.exe'] : ['-O2', srcFile, '-o', 'solution.exe'];
+    const binName = process.platform === 'win32' ? 'solution.exe' : 'solution';
+    const compileArgs = isCpp
+      ? ['-O2', '-std=c++17', srcFile, '-o', binName]
+      : ['-O2', srcFile, '-o', binName];
 
     const compileProc = spawnSync(compiler, compileArgs, {
       cwd: tempDir,
@@ -440,7 +442,7 @@ function runCompiledNative(code, testCases = [], options = {}, isCpp = true) {
       const tc = testCases[i];
       const startTime = process.hrtime.bigint();
 
-      const runProc = spawnSync(path.join(tempDir, binFile), [], {
+      const runProc = spawnSync(path.join(tempDir, binName), [], {
         cwd: tempDir,
         input: tc.input || '',
         timeout: timeoutMs,

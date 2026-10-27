@@ -59,7 +59,8 @@ async function getPracticeDashboard(userId) {
       attempted: attemptedCount,
       solved: solvedCount
     },
-    practiceQuestions
+    practiceQuestions,
+    practiceList: practiceQuestions
   };
 }
 

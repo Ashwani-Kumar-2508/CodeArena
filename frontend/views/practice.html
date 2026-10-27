@@ -366,7 +366,7 @@
     async function loadPracticeDashboard() {
       try {
         const res = await API.practice.getDashboard();
-        const bookmarks = res.data.practiceList || [];
+        const bookmarks = res.data.practiceList || res.data.practiceQuestions || [];
         const drawerList = document.getElementById('drawer-practice-list');
 
         if (activeQuestion) {

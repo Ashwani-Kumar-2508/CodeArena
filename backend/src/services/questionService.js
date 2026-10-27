@@ -41,15 +41,19 @@ async function listQuestions(user, query = {}) {
   // Filters
   if (search && search.trim()) {
     const s = search.trim();
-    const searchFilter = [
-      { title: { contains: s, mode: 'insensitive' } },
-      { description: { contains: s, mode: 'insensitive' } },
-      { category: { contains: s, mode: 'insensitive' } }
-    ];
+    const searchFilter = {
+      OR: [
+        { title: { contains: s, mode: 'insensitive' } },
+        { description: { contains: s, mode: 'insensitive' } },
+        { category: { contains: s, mode: 'insensitive' } }
+      ]
+    };
+    // If role-based OR exists, wrap both in AND so both conditions must hold
     if (where.OR) {
-      where.AND = [{ OR: searchFilter }];
+      where.AND = [{ OR: where.OR }, searchFilter];
+      delete where.OR;
     } else {
-      where.OR = searchFilter;
+      where.AND = [searchFilter];
     }
   }
 
@@ -67,6 +71,11 @@ async function listQuestions(user, query = {}) {
 
   if (language && language !== 'ALL') {
     where.language = language;
+  }
+
+  // Tag filter: match questions containing the requested tag
+  if (tag && tag !== 'ALL') {
+    where.tags = { array_contains: tag };
   }
 
   const [total, questions] = await Promise.all([

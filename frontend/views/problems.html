@@ -94,7 +94,7 @@
         <button onclick="setCategoryFilter('ALL')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-600 text-white shrink-0 cat-btn" data-cat="ALL">All</button>
         <button onclick="setCategoryFilter('Algorithms')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn" data-cat="Algorithms">Algorithms</button>
         <button onclick="setCategoryFilter('Data Structures')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn" data-cat="Data Structures">Data Structures</button>
-        <button onclick="setCategoryFilter('Distributed Systems')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-cat" data-cat="Distributed Systems">Distributed Systems</button>
+        <button onclick="setCategoryFilter('Distributed Systems')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn" data-cat="Distributed Systems">Distributed Systems</button>
         <button onclick="setCategoryFilter('System Architecture')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn" data-cat="System Architecture">System Architecture</button>
         <button onclick="setCategoryFilter('Leadership & Ownership')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-900 text-slate-400 hover:text-white shrink-0 cat-btn" data-cat="Leadership & Ownership">Behavioral</button>
       </div>
@@ -212,7 +212,7 @@
     async function loadBookmarks() {
       try {
         const res = await API.practice.getDashboard();
-        const list = res.data.practiceList || [];
+        const list = res.data.practiceList || res.data.practiceQuestions || [];
         bookmarkedQuestionIds = new Set(list.map(b => b.questionId));
       } catch (e) {
         console.warn('Could not load candidate practice bookmarks:', e);

@@ -358,7 +358,7 @@ async function loadCandidatePracticeDashboard() {
   try {
     const res = await API.practice.getDashboard();
     const stats = res.data.stats || { saved: 0, attempted: 0, solved: 0 };
-    const list = res.data.practiceList || [];
+    const list = res.data.practiceList || res.data.practiceQuestions || [];
 
     const savedEl = document.getElementById('candidate-stat-saved');
     const attemptedEl = document.getElementById('candidate-stat-attempted');
